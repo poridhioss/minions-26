@@ -1,0 +1,10 @@
+# .dockerignore file for Next.js frontend
+node_modules
+npm-debug.log
+.next
+.git
+.gitignore
+README.md
+.env
+.env.local
+.DS_Store
