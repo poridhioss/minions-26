@@ -1,5 +1,4 @@
-cat > .gitignore << 'EOF'
 venv/
 __pycache__/
 *.pem
-EOFmodel.pkl
+model.pkl
