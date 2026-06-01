@@ -2,4 +2,4 @@ cat > .gitignore << 'EOF'
 venv/
 __pycache__/
 *.pem
-EOF
+EOFmodel.pkl
