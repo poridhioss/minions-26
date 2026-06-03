@@ -69,6 +69,7 @@ legal-doc-classifier/
 │   └── model_loader.py   ← loads Legal-BERT and exposes predict()
 ├── train/
 │   └── train.py          ← Colab training script
+├── index.html            ← static frontend (GitHub Pages-ready)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -180,6 +181,22 @@ curl http://localhost:8000/health
 - **`docker-compose.yml`** — runs the API on port `8000` (with
   `MODEL_DIR=/app/saved_model`) and the MLflow tracking server on port
   `5000`.
+
+---
+
+## Web UI
+
+A static single-page frontend lives at [`index.html`](./index.html). It is
+pure HTML/CSS/JavaScript (no frameworks) and can be served by GitHub Pages
+out of the box. While the Docker stack is running on `localhost:8000`,
+open the page locally or visit the GitHub Pages URL to classify text with
+a colored badge per label, a live loading spinner, and a clear error if
+the API is unreachable.
+
+> The page calls `http://localhost:8000/predict` directly. If you publish
+> the page on GitHub Pages, the browser will only be able to reach the
+> API when the visitor also has the Docker stack running locally, or
+> when the API is exposed behind a CORS-enabled public URL.
 
 ---
 

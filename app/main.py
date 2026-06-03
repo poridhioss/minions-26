@@ -8,6 +8,7 @@
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Our own helper that loads the model and runs inference.
@@ -41,6 +42,16 @@ app = FastAPI(
     description="Classifies legal text into 4 categories using fine-tuned Legal-BERT.",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# CORS: allow the static frontend (file://, localhost, GitHub Pages) to call
+# this API from a browser. Without this, browsers block cross-origin POSTs.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # the API has no auth, so any origin is fine
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 
