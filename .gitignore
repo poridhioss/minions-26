@@ -1,0 +1,30 @@
+# ---- Trained model artifacts (400MB+, not suitable for Git) ----
+saved_model/
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- MLflow local state ----
+mlflow.db
+mlruns/
+mlflow.db-journal
+
+# ---- Trained-model archives ----
+*.zip
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ---- Project workspace metadata (Puku) ----
+.puku/
