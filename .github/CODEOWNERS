@@ -1,0 +1,25 @@
+# Code Owners for poridhioss organization
+
+# Global owners
+* @poridhioss/maintainers
+
+# Backend Python code
+main.py @poridhioss/backend-team
+train.py @poridhioss/backend-team
+requirements.txt @poridhioss/backend-team
+Dockerfile @poridhioss/devops-team
+
+# Frontend code
+frontend/ @poridhioss/frontend-team
+frontend/package.json @poridhioss/frontend-team
+
+# AWS deployment
+aws-* @poridhioss/devops-team
+deploy-to-aws.sh @poridhioss/devops-team
+
+# GitHub workflows
+.github/workflows/ @poridhioss/devops-team
+
+# Configuration files
+docker-compose.yml @poridhioss/devops-team
+.github/ @poridhioss/maintainers

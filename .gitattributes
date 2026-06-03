@@ -1,0 +1,48 @@
+# Byte order mark for UTF-8 files
+* text=auto
+
+# Shell files
+*.sh eol=lf
+*.bash eol=lf
+
+# Python files
+*.py eol=lf
+*.pyw eol=lf
+
+# YAML files
+*.yml eol=lf
+*.yaml eol=lf
+
+# Docker files
+Dockerfile eol=lf
+docker-compose.yml eol=lf
+docker-compose.yaml eol=lf
+
+# GitHub
+.github/** eol=lf
+
+# Package files
+*.json eol=lf
+*.lock eol=lf
+
+# Documentation
+*.md eol=lf
+*.markdown eol=lf
+
+# Binary files
+*.pkl binary
+*.pyc binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+*.o binary
+*.a binary
+
+# Image files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
