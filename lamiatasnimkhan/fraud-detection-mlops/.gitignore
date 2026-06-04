@@ -1,0 +1,67 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# ---------- Secrets / local config ----------
+.env
+.env.*
+!.env.example
+kaggle.json
+
+# ---------- Data (large, not for git) ----------
+data/raw/
+data/processed/
+*.zip
+*.csv.gz
+# OneDrive conflict copies
+* (OneDrive*
+*Conflict*
+
+# ---------- Models / artefacts ----------
+models/
+*.pkl
+*.joblib
+*.pt
+*.h5
+*.onnx
+
+# ---------- MLflow ----------
+mlflow/mlruns/
+mlflow/mlflow.db
+mlflow/mlflow.db-*
+mlflow/artifacts/
+
+# ---------- DVC / Hydra ----------
+.dvc/
+outputs/
+
+# ---------- Docker / runtime ----------
+.docker/
+docker/*.log
+*.pid
+
+# ---------- IDE / editor ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---------- Logs ----------
+logs/
+*.log

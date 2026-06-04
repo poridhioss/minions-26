@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FraudShield MLOps — End-to-End Fraud Detection Pipeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="fd-root">
+
+    <header class="fd-topbar">
+      <div class="fd-logo">
+        <div class="fd-logo-mark"><i class="ti ti-shield-checkered"></i></div>
+        <div>
+          <div class="fd-logo-text">FraudShield MLOps</div>
+          <div class="fd-logo-sub">creditcard.csv · 284,807 txns · XGBoost v1 · run e9aca710</div>
+        </div>
+      </div>
+      <nav class="fd-topnav">
+        <a href="#overview" class="active">Overview</a>
+        <a href="#pipeline">Pipeline</a>
+        <a href="#metrics">Model</a>
+        <a href="#predict">Inference</a>
+        <a href="#services">Services</a>
+      </nav>
+      <div class="fd-topbar-right">
+        <div class="fd-live-badge"><div class="fd-live-dot"></div>LIVE STREAM</div>
+        <div class="fd-time" id="fd-clock">—</div>
+      </div>
+    </header>
+
+    <main class="fd-body">
+
+      <!-- ═══════════════════ HERO / OVERVIEW ═══════════════════ -->
+      <section id="overview" class="fd-section">
+        <div class="fd-section-head">
+          <h2 class="fd-section-title">System Overview</h2>
+          <p class="fd-section-sub">Real-time credit card fraud detection · 30 PCA features · trained on 2 days of European cardholders</p>
+        </div>
+
+        <div class="fd-kpi-grid">
+          <div class="fd-kpi info">
+            <div class="fd-kpi-label">Total Transactions</div>
+            <div class="fd-kpi-value">284,807</div>
+            <div class="fd-kpi-sub">2-day window · Sep 2013</div>
+            <div class="fd-kpi-accent"></div>
+          </div>
+          <div class="fd-kpi danger">
+            <div class="fd-kpi-label">Fraud Cases</div>
+            <div class="fd-kpi-value">492</div>
+            <div class="fd-kpi-sub">0.173% of total · 1:577 ratio</div>
+            <div class="fd-kpi-accent"></div>
+          </div>
+          <div class="fd-kpi safe">
+            <div class="fd-kpi-label">Model ROC-AUC</div>
+            <div class="fd-kpi-value">0.9704</div>
+            <div class="fd-kpi-sub">XGBoost · n=200, depth=6</div>
+            <div class="fd-kpi-accent"></div>
+          </div>
+          <div class="fd-kpi warn">
+            <div class="fd-kpi-label">Predictions / sec</div>
+            <div class="fd-kpi-value" id="kpi-tps">—</div>
+            <div class="fd-kpi-sub">FastAPI · uvicorn :8000</div>
+            <div class="fd-kpi-accent"></div>
+          </div>
+        </div>
+
+        <div class="fd-mid">
+          <div class="fd-card">
+            <div class="fd-card-header">
+              <span class="fd-card-title">Confusion matrix — production run</span>
+              <span class="fd-card-tag blue">MLflow · run e9aca710281f</span>
+            </div>
+            <div class="fd-cm">
+              <div class="fd-cm-cell fd-cm-tl"><span class="fd-cm-num" id="cm-tn">—</span><span class="fd-cm-cap">TN</span></div>
+              <div class="fd-cm-cell fd-cm-tr"><span class="fd-cm-num" id="cm-fp">—</span><span class="fd-cm-cap">FP</span></div>
+              <div class="fd-cm-cell fd-cm-bl"><span class="fd-cm-num" id="cm-fn">—</span><span class="fd-cm-cap">FN</span></div>
+              <div class="fd-cm-cell fd-cm-br"><span class="fd-cm-num" id="cm-tp">—</span><span class="fd-cm-cap">TP</span></div>
+            </div>
+            <div class="fd-cm-axis">
+              <span>Predicted: Legit</span>
+              <span>Predicted: Fraud</span>
+            </div>
+          </div>
+
+          <div class="fd-card">
+            <div class="fd-card-header">
+              <span class="fd-card-title">Live prediction throughput</span>
+              <span class="fd-card-tag green">rolling 60s window</span>
+            </div>
+            <div style="position:relative;width:100%;height:220px;">
+              <canvas id="volumeChart"></canvas>
+            </div>
+            <div class="fd-legend">
+              <span class="fd-legend-item"><span class="fd-legend-line" style="background:#378ADD;"></span>Legitimate</span>
+              <span class="fd-legend-item"><span class="fd-legend-line" style="background:#E24B4A;"></span>Fraud caught</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════ PIPELINE ═══════════════════ -->
+      <section id="pipeline" class="fd-section">
+        <div class="fd-section-head">
+          <h2 class="fd-section-title">MLOps Pipeline</h2>
+          <p class="fd-section-sub">End-to-end flow from raw Kaggle CSV to served REST predictions, orchestrated via Docker Compose</p>
+        </div>
+
+        <div class="fd-pipeline">
+          <div class="fd-stage" data-stage="1">
+            <div class="fd-stage-icon blue"><i class="ti ti-database"></i></div>
+            <div class="fd-stage-name">Data Source</div>
+            <div class="fd-stage-detail">Kaggle · ULB<br/>creditcard.csv</div>
+            <div class="fd-stage-tag">284,807 rows</div>
+          </div>
+          <div class="fd-arrow"><i class="ti ti-arrow-narrow-right"></i></div>
+          <div class="fd-stage" data-stage="2">
+            <div class="fd-stage-icon purple"><i class="ti ti-filter"></i></div>
+            <div class="fd-stage-name">Preprocess</div>
+            <div class="fd-stage-detail">drop dupes<br/>scale Time/Amount<br/>SMOTE oversample</div>
+            <div class="fd-stage-tag">src/preprocess.py</div>
+          </div>
+          <div class="fd-arrow"><i class="ti ti-arrow-narrow-right"></i></div>
+          <div class="fd-stage" data-stage="3">
+            <div class="fd-stage-icon green"><i class="ti ti-brain"></i></div>
+            <div class="fd-stage-name">Train</div>
+            <div class="fd-stage-detail">XGBClassifier<br/>200 trees · depth 6</div>
+            <div class="fd-stage-tag">src/train.py</div>
+          </div>
+          <div class="fd-arrow"><i class="ti ti-arrow-narrow-right"></i></div>
+          <div class="fd-stage" data-stage="4">
+            <div class="fd-stage-icon orange"><i class="ti ti-package"></i></div>
+            <div class="fd-stage-name">Track &amp; Register</div>
+            <div class="fd-stage-detail">log params · metrics<br/>register "FraudDetector"</div>
+            <div class="fd-stage-tag">MLflow v2.13</div>
+          </div>
+          <div class="fd-arrow"><i class="ti ti-arrow-narrow-right"></i></div>
+          <div class="fd-stage" data-stage="5">
+            <div class="fd-stage-icon red"><i class="ti ti-api-app"></i></div>
+            <div class="fd-stage-name">Serve</div>
+            <div class="fd-stage-detail">FastAPI · uvicorn<br/>POST /predict</div>
+            <div class="fd-stage-tag">app/main.py</div>
+          </div>
+          <div class="fd-arrow"><i class="ti ti-arrow-narrow-right"></i></div>
+          <div class="fd-stage" data-stage="6">
+            <div class="fd-stage-icon blue"><i class="ti ti-chart-bar"></i></div>
+            <div class="fd-stage-name">Monitor</div>
+            <div class="fd-stage-detail">live stream<br/>drift detection</div>
+            <div class="fd-stage-tag">this dashboard</div>
+          </div>
+        </div>
+
+        <div class="fd-pipeline-details">
+          <div class="fd-card fd-pipeline-card">
+            <div class="fd-card-header"><span class="fd-card-title">① Data Source</span><span class="fd-card-tag blue">Kaggle · ULB</span></div>
+            <ul class="fd-tech-list">
+              <li><span>Dataset</span><b>creditcard.csv</b></li>
+              <li><span>Rows</span><b>284,807</b></li>
+              <li><span>Features</span><b>30 (V1–V28 PCA + Time + Amount)</b></li>
+              <li><span>Fraud cases</span><b>492 (0.173%)</b></li>
+              <li><span>Window</span><b>2 days · Sep 2013</b></li>
+              <li><span>Class ratio</span><b>1 : 577</b></li>
+            </ul>
+          </div>
+          <div class="fd-card fd-pipeline-card">
+            <div class="fd-card-header"><span class="fd-card-title">② Preprocess</span><span class="fd-card-tag purple">src/preprocess.py</span></div>
+            <ul class="fd-tech-list">
+              <li><span>Drop</span><b>duplicate rows</b></li>
+              <li><span>Scale</span><b>Time, Amount → StandardScaler</b></li>
+              <li><span>Split</span><b>80 / 20 stratified (seed=42)</b></li>
+              <li><span>Resample</span><b>SMOTE on train only</b></li>
+              <li><span>Artifact</span><b>models/scaler.pkl</b></li>
+            </ul>
+          </div>
+          <div class="fd-card fd-pipeline-card">
+            <div class="fd-card-header"><span class="fd-card-title">③ Train</span><span class="fd-card-tag green">src/train.py</span></div>
+            <ul class="fd-tech-list">
+              <li><span>Model</span><b>XGBClassifier</b></li>
+              <li><span>n_estimators</span><b>200</b></li>
+              <li><span>max_depth</span><b>6</b></li>
+              <li><span>learning_rate</span><b>0.1</b></li>
+              <li><span>scale_pos_weight</span><b>1 (post-SMOTE)</b></li>
+              <li><span>eval_metric</span><b>logloss</b></li>
+            </ul>
+          </div>
+          <div class="fd-card fd-pipeline-card">
+            <div class="fd-card-header"><span class="fd-card-title">④ Track &amp; Register</span><span class="fd-card-tag orange">MLflow</span></div>
+            <ul class="fd-tech-list">
+              <li><span>Tracking URI</span><b>http://mlflow:5000</b></li>
+              <li><span>Experiment</span><b>fraud-detection</b></li>
+              <li><span>Run</span><b>xgboost-fraud-v1</b></li>
+              <li><span>Registered as</span><b>FraudDetector</b></li>
+              <li><span>Stage</span><b>Production</b></li>
+            </ul>
+          </div>
+          <div class="fd-card fd-pipeline-card">
+            <div class="fd-card-header"><span class="fd-card-title">⑤ Serve</span><span class="fd-card-tag red">app/main.py</span></div>
+            <ul class="fd-tech-list">
+              <li><span>Framework</span><b>FastAPI</b></li>
+              <li><span>Endpoint</span><b>POST /predict</b></li>
+              <li><span>Health</span><b>GET /health</b></li>
+              <li><span>Schema</span><b>TransactionFeatures</b></li>
+              <li><span>Response</span><b>PredictionResponse</b></li>
+              <li><span>Port</span><b>:8000</b></li>
+            </ul>
+          </div>
+          <div class="fd-card fd-pipeline-card">
+            <div class="fd-card-header"><span class="fd-card-title">⑥ Monitor</span><span class="fd-card-tag blue">this dashboard</span></div>
+            <ul class="fd-tech-list">
+              <li><span>Live stream</span><b>1–2s tick</b></li>
+              <li><span>Throughput chart</span><b>60s rolling</b></li>
+              <li><span>Drift signal</span><b>probability distribution</b></li>
+              <li><span>Live TPS</span><b>updated every tx</b></li>
+              <li><span>Status</span><b id="stream-status">streaming</b></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════ MODEL METRICS ═══════════════════ -->
+      <section id="metrics" class="fd-section">
+        <div class="fd-section-head">
+          <h2 class="fd-section-title">Model Performance</h2>
+          <p class="fd-section-sub">Metrics from MLflow run <code>e9aca710281f400bab001c06b6f3f802</code> — FraudDetector v1 (Production)</p>
+        </div>
+
+        <div class="fd-metric-grid">
+          <div class="fd-metric">
+            <div class="fd-metric-ring" style="--p:97.04;--c:#378ADD;"><span>0.9704</span></div>
+            <div class="fd-metric-name">Discrimination</div>
+            <div class="fd-metric-sub">TPR vs FPR · 0.5 = random</div>
+          </div>
+          <div class="fd-metric">
+            <div class="fd-metric-ring" style="--p:72.12;--c:#4FA86C;"><span>0.7212</span></div>
+            <div class="fd-metric-name">Balance</div>
+            <div class="fd-metric-sub">harmonic mean P/R</div>
+          </div>
+          <div class="fd-metric">
+            <div class="fd-metric-ring" style="--p:66.37;--c:#F2B53A;"><span>0.6637</span></div>
+            <div class="fd-metric-name">False alarm</div>
+            <div class="fd-metric-sub">flagged that are fraud</div>
+          </div>
+          <div class="fd-metric">
+            <div class="fd-metric-ring" style="--p:78.95;--c:#E24B4A;"><span>0.7895</span></div>
+            <div class="fd-metric-name">Catch rate</div>
+            <div class="fd-metric-sub">frauds actually found</div>
+          </div>
+        </div>
+
+        <div class="fd-mid">
+          <div class="fd-card">
+            <div class="fd-card-header">
+              <span class="fd-card-title">Top feature importances (XGBoost gain)</span>
+              <span class="fd-card-tag orange">model internals</span>
+            </div>
+            <div style="position:relative;width:100%;height:240px;">
+              <canvas id="featChart"></canvas>
+            </div>
+          </div>
+
+          <div class="fd-card">
+            <div class="fd-card-header">
+              <span class="fd-card-title">Class distribution · before vs after SMOTE</span>
+              <span class="fd-card-tag purple">train split only</span>
+            </div>
+            <div class="fd-dist-block">
+              <div class="fd-dist-row">
+                <span class="fd-dist-label">Before</span>
+                <div class="fd-dist-bar"><div class="fd-dist-legit" style="width:99.83%;"></div><div class="fd-dist-fraud" style="width:0.17%;"></div></div>
+                <span class="fd-dist-val">227,452 / 394</span>
+              </div>
+              <div class="fd-dist-row">
+                <span class="fd-dist-label">After</span>
+                <div class="fd-dist-bar"><div class="fd-dist-legit" style="width:50%;"></div><div class="fd-dist-fraud" style="width:50%;"></div></div>
+                <span class="fd-dist-val">227,452 / 227,452</span>
+              </div>
+              <div class="fd-dist-legend">
+                <span><span class="fd-legend-line" style="background:#378ADD;"></span>Legitimate (0)</span>
+                <span><span class="fd-legend-line" style="background:#E24B4A;"></span>Fraud (1)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════ LIVE INFERENCE ═══════════════════ -->
+      <section id="predict" class="fd-section">
+        <div class="fd-section-head">
+          <h2 class="fd-section-title">Live Inference</h2>
+          <p class="fd-section-sub">POST to <code>/predict</code> with 30 PCA features — same contract as <code>app/schemas.py:TransactionFeatures</code></p>
+        </div>
+
+        <div class="fd-bottom">
+          <div class="fd-card fd-table-wrap">
+            <div class="fd-card-header">
+              <span class="fd-card-title">Recent predictions · live stream</span>
+              <span class="fd-card-tag green">streaming</span>
+            </div>
+            <table class="fd-table">
+              <thead>
+                <tr>
+                  <th>Txn ID</th><th>Time (s)</th><th>Amount</th>
+                  <th>P(fraud)</th><th>Risk</th><th>Decision</th>
+                </tr>
+              </thead>
+              <tbody id="txn-feed"></tbody>
+            </table>
+          </div>
+
+          <div class="fd-sidebar">
+            <div class="fd-card">
+              <div class="fd-card-header">
+                <span class="fd-card-title">Try a transaction</span>
+                <span class="fd-card-tag blue">simulated</span>
+              </div>
+              <div class="fd-form">
+                <label>Time (s)
+                  <input type="number" id="pred-time" value="406" min="0" max="172800" />
+                </label>
+                <label>Amount ($)
+                  <input type="number" id="pred-amount" value="149.62" step="0.01" />
+                </label>
+                <label>Profile
+                  <select id="pred-profile">
+                    <option value="normal">Normal</option>
+                    <option value="suspicious">Suspicious</option>
+                    <option value="high_risk">High risk</option>
+                  </select>
+                </label>
+                <button id="pred-btn" class="fd-btn">POST /predict</button>
+
+                <div class="fd-pred-result">
+                  <div class="fd-pred-row">
+                    <span class="fd-pred-key">transaction_id</span>
+                    <span class="fd-pred-val" id="pred-label">—</span>
+                  </div>
+                  <div class="fd-pred-row">
+                    <span class="fd-pred-key">fraud_probability</span>
+                    <span class="fd-pred-val" id="pred-score">—</span>
+                  </div>
+                  <div class="fd-pred-bar-wrap">
+                    <div class="fd-pred-bar" id="pred-bar"></div>
+                  </div>
+                  <div class="fd-pred-detail" id="pred-detail">awaiting input…</div>
+                </div>
+
+                <pre class="fd-code fd-code-sm" id="pred-json">{
+  "transaction_id": "—",
+  "is_fraud": false,
+  "fraud_probability": 0.0,
+  "risk_level": "—"
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════ SERVICES ═══════════════════ -->
+      <section id="services" class="fd-section">
+        <div class="fd-section-head">
+          <h2 class="fd-section-title">Service Topology</h2>
+          <p class="fd-section-sub">3 services on the <code>mlops-net</code> bridge network, defined in <code>docker-compose.yml</code></p>
+        </div>
+
+        <div class="fd-svc-grid">
+          <div class="fd-svc">
+            <div class="fd-svc-top"><i class="ti ti-database"></i></div>
+            <div class="fd-svc-name">mlflow</div>
+            <div class="fd-svc-detail">Tracking server + artifact store. Receives runs from <code>trainer</code>, serves the registered <b>FraudDetector</b> model to <code>api</code>.</div>
+            <div class="fd-svc-meta">
+              <span class="fd-svc-port">:5000</span>
+              <span class="fd-svc-img">ghcr.io/mlflow/mlflow:v2.13.0</span>
+            </div>
+          </div>
+          <div class="fd-svc">
+            <div class="fd-svc-top"><i class="ti ti-brain"></i></div>
+            <div class="fd-svc-name">trainer</div>
+            <div class="fd-svc-detail">One-shot job: load CSV, preprocess, fit XGBoost, log everything to MLflow, register the best model. Exits 0 on success.</div>
+            <div class="fd-svc-meta">
+              <span class="fd-svc-port">job</span>
+              <span class="fd-svc-img">fraud-trainer:latest</span>
+            </div>
+          </div>
+          <div class="fd-svc">
+            <div class="fd-svc-top"><i class="ti ti-api-app"></i></div>
+            <div class="fd-svc-name">api</div>
+            <div class="fd-svc-detail">FastAPI service. Loads <b>FraudDetector/Production</b> from MLflow on startup, exposes <code>/predict</code> and <code>/health</code>.</div>
+            <div class="fd-svc-meta">
+              <span class="fd-svc-port">:8000</span>
+              <span class="fd-svc-img">fraud-api:latest</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fd-card fd-mt">
+          <div class="fd-card-header">
+            <span class="fd-card-title">cURL · sample request</span>
+            <span class="fd-card-tag green">working</span>
+          </div>
+<pre class="fd-code">curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Time": 406, "Amount": 149.62,
+    "V1": -1.36, "V2": 1.05,  "V3": -0.07, "V4":  0.89, "V5": -0.32,
+    "V6": -0.14, "V7": -0.42, "V8":  0.16,  "V9": -0.08, "V10": 0.51,
+    "V11":-0.51, "V12":-0.62, "V13":-0.39, "V14":-0.93, "V15": 0.05,
+    "V16": 0.39, "V17":-0.21, "V18": 0.07,  "V19": 0.04,  "V20": 0.21,
+    "V21":-0.11, "V22": 0.06, "V23":-0.05, "V24":-0.21, "V25": 0.06,
+    "V26":-0.05, "V27":-0.01, "V28": 0.04
+  }'
+
+# 200 OK
+# {
+#   "transaction_id": "3f2a91b7",
+#   "is_fraud": false,
+#   "fraud_probability": 0.0041,
+#   "risk_level": "LOW"
+# }</pre>
+        </div>
+      </section>
+
+      <footer class="fd-footer">
+        <span>FraudShield MLOps · XGBoost · FastAPI · MLflow · Docker Compose</span>
+        <span>creditcard.csv · ULB ML Group · Sep 2013</span>
+      </footer>
+    </main>
+  </div>
+  <script src="dashboard.js"></script>
+</body>
+</html>
