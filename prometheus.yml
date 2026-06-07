@@ -1,0 +1,31 @@
+# ============================================================
+# Prometheus configuration for the legal-doc-classifier stack.
+#
+# Scrapes the FastAPI /metrics endpoint exposed by the `api`
+# service every 15 seconds. The `api` hostname is the docker
+# compose service name and resolves through Docker's internal DNS.
+# ============================================================
+
+global:
+  scrape_interval: 15s        # how often to scrape targets
+  evaluation_interval: 15s    # how often to evaluate recording rules
+  external_labels:
+    monitor: "legal-doc-classifier"
+
+scrape_configs:
+  # The FastAPI service itself. prometheus_client is wired into
+  # app/main.py and exposes metrics at GET /metrics.
+  - job_name: "legal-classifier-api"
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          service: "api"
+          env: "local"
+
+  # Prometheus self-scrape, useful for sanity-checking that the
+  # server itself is healthy (`up{}` series for the prometheus job).
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
