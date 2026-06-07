@@ -1,59 +1,167 @@
 # Legal Document Classifier - End-to-End Lab
 
-> A reproducible, step-by-step laboratory document for building, training,
-> serving, and monitoring a Legal-BERT text classifier. This is a single
-> lab with six numbered **steps**; each step has a stated **goal**, the
-> **commands** you must run, an explanation of **what is happening under
-> the hood**, a **verification** step, and a **troubleshooting** block
-> for the common failure modes. Work through Steps 1 to 6 in order.
+> A reproducible, story-driven laboratory for building, training, serving,
+> and monitoring a Legal-BERT text classifier. This document reads like a
+> short textbook chapter: it opens with a challenge, sets learning goals,
+> then walks you through six chapters of implementation, each one
+> explaining the **why** before the **how**. Work through Chapters 1 to 6
+> in order; the Epilogue is a recap and the closing Troubleshooting table
+> is your safety net.
 
-This document is written so a viewer who has never seen the project can
+This lab is written so a viewer who has never seen the project can
 complete it end-to-end on a fresh Windows + Docker machine in roughly one
-hour, *and* understand the role of every file along the way.
+hour, **and** understand the role of every file along the way.
 
 ---
 
-## What you will build
+## Prologue: The Challenge
 
-Given a paragraph of legal text, the API returns the most likely SCOTUS
-topic area along with a confidence score. The same `predict()` function
-powers both the FastAPI endpoint and any client that can `POST` JSON, so
-the model can be plugged into a web app, a notebook, or a CI smoke test
-without changes. Steps 1 to 6 walk you through doing all of that on your
-own machine.
+Legal organizations process thousands of documents every day. Manually
+categorizing legal text is slow, expensive, and inconsistent. Modern
+transformer models can automate this task, but deploying them into a
+production-ready system requires much more than training a neural network.
+
+In this laboratory, you will build a complete Legal Document
+Classification pipeline that:
+
+- Fine-tunes Legal-BERT on a curated subset of the SCOTUS benchmark.
+- Serves predictions through a FastAPI REST endpoint.
+- Tracks training experiments with MLflow.
+- Monitors inference metrics using Prometheus.
+- Visualizes system health in Grafana.
+- Provides a browser-based web interface for end users.
+
+By the end of the lab, you will have reproduced an end-to-end MLOps
+workflow for legal NLP - the same shape used in real legal-tech products.
 
 ---
-## User Interface
 
-<img width="1841" height="837" alt="image" src="https://github.com/user-attachments/assets/7fe6ac28-bb26-4ca1-96c7-a7b5f2d05575" />
+## Learning Objectives
 
+By the end of this lab, you will be able to:
 
+- [x] Fine-tune Legal-BERT on the SCOTUS dataset.
+- [x] Understand transformer-based legal text classification.
+- [x] Deploy a machine learning model using FastAPI.
+- [x] Containerize the application using Docker.
+- [x] Track experiments with MLflow.
+- [x] Collect inference metrics with Prometheus.
+- [x] Visualize system health using Grafana.
+- [x] Test and use the deployed model through a web interface.
 
-## Step 1 - Orient yourself and form the mental model
+---
 
-**Goal.** Form a single mental picture of every component in the stack
-*before* writing a single command, so that every later step has a place
-to land.
+## System Overview
 
-### 1.1 What we are building
+Before we write a single command, it helps to see the full pipeline as
+one picture. Each box becomes a chapter later in the lab.
 
-We are going to take a paragraph of legal text and automatically label it
-with one of four U.S. Supreme Court topic areas:
+```
+   Dataset (LexGLUE SCOTUS)
+        |
+        v
+   Legal-BERT Training          (Chapter 2)
+        |
+        v
+   Saved Model (./saved_model/)
+        |
+        v
+   FastAPI Service              (Chapter 3)
+        |
+        +---> /predict  --> JSON response
+        |
+        +---> /metrics
+                |
+                v
+          Prometheus              (Chapter 4)
+                |
+                v
+            Grafana               (Chapter 4)
+                |
+                v
+         Web Frontend             (Chapter 5)
+```
 
-| Label ID | Topic area           |
-|----------|----------------------|
-| 0        | Criminal Procedure   |
-| 1        | Civil Rights         |
-| 2        | First Amendment      |
-| 3        | Economic Activity    |
+The two side-channels you don't see in the picture are **MLflow**
+(records hyperparameters and metrics from Chapter 2's training run) and
+**health checks** on the API container (Chapter 3). Both surface in the
+web UIs you will visit later.
 
-We use a transformer called **Legal-BERT** (`nlpaueb/legal-bert-base-uncased`)
-that has already been pre-trained on large legal corpora, and we *fine-tune*
-it on the SCOTUS split of the [LexGLUE](https://huggingface.co/datasets/coastalcph/lex_glue)
-benchmark. Fine-tuning is short (3 epochs) because the heavy lifting was
-already done in pre-training.
+---
 
-### 1.2 The five components
+## Environment Setup
+
+Exactly one thing has to be true before Chapter 1: your machine can
+reach a working Docker daemon. Everything else is downloaded on demand.
+
+### Prerequisites
+
+| Requirement         | Purpose                                           |
+|---------------------|---------------------------------------------------|
+| Docker Desktop      | Runs the API, MLflow, Prometheus, and Grafana     |
+| Google account      | Chapter 2 trains in a free Colab T4 GPU           |
+| Git                 | Clone this repository                             |
+| PowerShell 5.1+     | All API testing in this lab uses Invoke-RestMethod|
+
+> If you are on macOS or Linux, every PowerShell snippet in this
+> document also works inside PowerShell 7, and the `docker compose`
+> commands are identical.
+
+### Verify your baseline
+
+```powershell
+# 1. Start Docker Desktop
+#    Either double-click the desktop icon, or:
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+
+# 2. Wait for the daemon, then confirm:
+docker version
+docker info | Select-String "Server Version"
+```
+
+You should see both a **Client** and a **Server** section with a
+non-empty version string. If you see *"Cannot connect to the Docker
+daemon"*, Docker Desktop is still starting - wait 30 seconds and retry.
+
+```powershell
+docker run --rm hello-world
+```
+
+If you see *"Hello from Docker!"*, the daemon, the network, and the
+default registry all work, and you are ready for Chapter 1.
+
+---
+
+# Chapter 1: Understanding the System
+
+> **Why this chapter exists.** Before you run a single command, you need
+> a single mental picture of every component in the stack. This chapter
+> gives you that picture. Subsequent chapters will keep referring back
+> to the diagram and the file tree, so take five minutes to absorb them.
+
+## What You Will Build
+
+A paragraph of legal text goes in, and a labelled topic area comes out.
+The model classifies text into one of four U.S. Supreme Court topic
+areas:
+
+| Label ID | Topic area         |
+|----------|--------------------|
+| 0        | Criminal Procedure |
+| 1        | Civil Rights       |
+| 2        | First Amendment    |
+| 3        | Economic Activity  |
+
+The classifier is **Legal-BERT** (`nlpaueb/legal-bert-base-uncased`), a
+transformer that has already been pre-trained on large legal corpora.
+We **fine-tune** it on the SCOTUS split of the
+[LexGLUE](https://huggingface.co/datasets/coastalcph/lex_glue)
+benchmark. Fine-tuning is short (3 epochs) because the heavy lifting
+was already done in pre-training.
+
+## Implementation
+
+### The five components
 
 ```
    +--------------+      +--------------+      +--------------+
@@ -87,17 +195,17 @@ A sixth component, **MLflow**, is the experiment tracker that records the
 hyperparameters and metrics from the training run so you can compare
 different fine-tuning experiments later.
 
-### 1.3 Where files live
+### Where files live
 
 ```
 legal-doc-classifier/
-+-- saved_model/                  <- created in Step 3, copied into project in Step 4
++-- saved_model/                  <- created in Chapter 2, copied into project in Chapter 3
 +-- app/
 |   +-- __init__.py               <- makes `app` an importable package
 |   +-- main.py                   <- FastAPI app: /predict, /health, /metrics
 |   +-- model_loader.py           <- loads Legal-BERT once, exposes predict()
 +-- train/
-|   +-- train.py                  <- Colab training script (Step 3)
+|   +-- train.py                  <- Colab training script (Chapter 2)
 +-- grafana/
 |   +-- dashboards/dashboard.json <- pre-built monitoring dashboard
 |   +-- provisioning/
@@ -105,137 +213,137 @@ legal-doc-classifier/
 |       +-- dashboards/dashboards.yml   <- tells Grafana where dashboards live
 +-- scripts/                      <- PowerShell helpers for ops tasks
 +-- prometheus.yml                <- scrape config (15 s, target api:8000)
-+-- index.html                    <- static frontend (Step 6)
++-- index.html                    <- static frontend (Chapter 5)
 +-- Dockerfile                    <- builds the API image
 +-- docker-compose.yml            <- orchestrates api + mlflow + prometheus + grafana
 +-- requirements.txt              <- Python dependencies
 +-- README.md                     <- this file
 ```
 
-> WARNING: `saved_model/` is **not** in git - it weighs ~400 MB. Step 3 produces
-> it, Step 4 consumes it.
+> **WARNING:** `saved_model/` is **not** in git - it weighs ~400 MB.
+> Chapter 2 produces it, Chapter 3 consumes it.
 
-### 1.4 What "end-to-end" means here
-
-End-to-end in this project means: a user types legal text into a web
-page (or hits an API), the text is sent to a containerised model, the
-model returns a label, the call is recorded as a metric, Prometheus
-collects the metric, and Grafana visualises it - all without you writing
-extra glue code.
-
----
-
-## Step 2 - Set up the working environment
-
-**Goal.** Get a clean baseline: Docker running, project cloned, helper
-tools available, no surprises in the next steps.
-
-### 2.1 Prerequisites
-
-| Tool | Version | Why |
-|------|---------|-----|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | 4.x or newer | Runs API, MLflow, Prometheus, Grafana in containers |
-| PowerShell | 5.1+ (ships with Windows) | All `Invoke-RestMethod` examples in this guide |
-| ~5 GB free disk | - | Saved model + Docker images |
-| A Google account | - | Step 3 needs Colab GPU |
-
-> If you are on macOS or Linux, the PowerShell snippets still work inside
-> PowerShell 7, and all `docker compose` commands are identical.
-
-### 2.2 Steps
-
-```powershell
-# 1. Start Docker Desktop
-#    Either double-click the desktop icon, or:
-Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-
-# 2. Wait for the daemon, then confirm:
-docker version
-docker info | Select-String "Server Version"
-```
-
-You should see both a **Client** and a **Server** section with a
-non-empty version string. If you see *"Cannot connect to the Docker
-daemon"*, Docker Desktop is still starting - wait 30 seconds and retry.
-
-### 2.3 Clone or download the project
+### Clone the project
 
 ```powershell
 cd E:\Projects
-git clone <your-repo-url> legal-doc-classifier
+git clone https://github.com/bountyhunter12/legal-doc-classifier-observability.git legal-doc-classifier
 cd legal-doc-classifier
 ```
 
 If you already have the project on disk, just `cd` into it.
 
-### 2.4 Verify the tree
+### Verify the tree
 
 ```powershell
 Get-ChildItem -Force | Select-Object Name, Mode
 ```
 
-You should see the folders listed in Step 1 section 1.3. The `saved_model/`
-folder will be empty for now - that is correct.
+You should see the folders listed above. The `saved_model/` folder will
+be empty for now - that is correct.
 
-### 2.5 What is happening
+## Under the Hood
 
-- **Docker Desktop** is a Hyper-V/VirtIO-based Linux VM that runs the
-  Docker daemon. Every `docker compose` command in later steps creates
-  containers *inside that VM*, not on your Windows host.
-- The **project tree** is the source of truth. Compose reads
-  `docker-compose.yml` from this root, and the model loader reads
-  `saved_model/` from the same root (mounted at `/app/saved_model`
-  inside the API container).
+### What is Legal-BERT?
 
-### 2.6 Verify
+BERT is a transformer encoder pre-trained on a large general corpus
+using two objectives: masked language modeling and next-sentence
+prediction. **Legal-BERT** is the same architecture, but pre-trained on
+legal text - case law, statutes, contracts. Its token embeddings
+already know what *petitioner*, *respondent*, *habeas corpus*, and
+*writ of certiorari* mean before we fine-tune it.
 
-```powershell
-docker run --rm hello-world
-```
+The cost of pre-training is days on a multi-GPU cluster, so we don't
+do it. The cost of **fine-tuning** the classification head is minutes
+on a single T4 - that is Chapter 2.
 
-You should see *"Hello from Docker!"* This proves the daemon, the
-network, and the default registry all work.
+### What is SCOTUS?
 
-### 2.7 Troubleshooting
+**SCOTUS** stands for *Supreme Court of the United States*. The LexGLUE
+SCOTUS split is a benchmark of U.S. Supreme Court opinions, each
+labelled with one of 14 issue areas. We discard 10 of them because we
+only want four coarse classes. The filtering and remap happens inside
+`train/train.py` and is invisible to the rest of the system.
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `open //./pipe/dockerDesktopLinuxEngine: ...` | Docker Desktop not running | Start it from the Start menu, wait 30 s, retry |
-| `docker: command not found` | Docker not in `PATH` | Reinstall Docker Desktop or add `C:\Program Files\Docker\Docker\resources\bin` to `PATH` |
-| WSL2 kernel missing | WSL not installed | `wsl --install` from an elevated PowerShell, then reboot |
+### What is MLflow?
+
+MLflow is an open-source experiment tracker. During Chapter 2's
+training run it records the hyperparameters (learning rate, batch
+size, epochs) and per-epoch metrics (loss, accuracy, F1) into a local
+SQLite store. The `mlflow` service in `docker-compose.yml` is just the
+web UI on top of that store, so you can compare runs in your browser
+without writing code.
+
+## Verification
+
+By the end of this chapter you should be able to:
+
+- Point at any folder in the tree and explain what lives there.
+- Point at any box in the component diagram and name the chapter that
+  builds it.
+- Explain, in one sentence, what Legal-BERT is and why we don't train
+  it from scratch.
+
+If you can, you are ready for Chapter 2.
+
+## Troubleshooting
+
+| Symptom                                              | Cause                          | Fix                                              |
+|------------------------------------------------------|--------------------------------|--------------------------------------------------|
+| `open //./pipe/dockerDesktopLinuxEngine: ...`        | Docker Desktop not running     | Start it from the Start menu, wait 30 s, retry   |
+| `docker: command not found`                         | Docker not in `PATH`           | Reinstall Docker Desktop or add `C:\Program Files\Docker\Docker\resources\bin` to `PATH` |
+| WSL2 kernel missing                                  | WSL not installed              | `wsl --install` from an elevated PowerShell, then reboot |
 
 ---
 
-## Step 3 - Train the model in Google Colab
+# Chapter 2: Training the Model
 
-**Goal.** Produce the `saved_model/` directory containing a fine-tuned
-Legal-BERT and matching tokenizer. We do this in Colab because the free
-T4 GPU finishes in ~10-20 minutes, vs. several hours on a laptop CPU.
+> **Why this chapter exists.** A saved model is the single artifact the
+> rest of the system depends on. Every other chapter either loads it,
+> serves it, or measures it. This chapter is the only one that needs a
+> GPU, and we deliberately push the GPU work to Google Colab so the
+> rest of the lab can run on any laptop.
 
-### 3.1 Why Colab
+## What You Will Build
 
-| Option | Cost | Time | Verdict |
-|--------|------|------|---------|
-| Local CPU | Free | 4-8 hours | Not practical |
-| Local GPU (RTX 30/40) | You own it | ~20 min | Good but not assumed |
-| **Google Colab free T4** | Free | ~15 min | **Default for this lab** |
-| Colab Pro / AWS | $$ | ~5 min | Out of scope |
+A fine-tuned Legal-BERT model on disk, in a folder called
+`saved_model/`, containing the model weights, the tokenizer, and the
+configuration that says "this is a 4-class classifier."
 
-### 3.2 Steps
+We train in Colab because the free T4 GPU finishes in ~10-20 minutes,
+vs. several hours on a laptop CPU.
+
+### Why Colab
+
+| Option                  | Cost  | Time     | Verdict                          |
+|-------------------------|-------|----------|----------------------------------|
+| Local CPU               | Free  | 4-8 h    | Not practical                    |
+| Local GPU (RTX 30/40)   | Owned | ~20 min  | Good but not assumed             |
+| **Google Colab free T4**| Free  | ~15 min  | **Default for this lab**         |
+| Colab Pro / AWS         | $$    | ~5 min   | Out of scope                     |
+
+## Implementation
+
+### Steps
 
 1. Open https://colab.research.google.com and create a new notebook.
 2. Set the runtime: **Runtime -> Change runtime type -> T4 GPU -> Save**.
 3. In the first cell, install dependencies:
+
    ```python
    !pip install -q transformers torch datasets mlflow scikit-learn
    ```
+
 4. In a second cell, download the training script and run it:
+
    ```python
-   !wget -q https://raw.githubusercontent.com/<owner>/legal-doc-classifier/main/train/train.py
+   !wget -q https://raw.githubusercontent.com/bountyhunter12/legal-doc-classifier-observability/main/train/train.py
    %run train.py
    ```
+
    Or, if you prefer to paste the script, open `train/train.py` from
    this repo, copy its contents into a new cell, and run that cell.
+
 5. The script will:
    - Load the LexGLUE SCOTUS split (~3 k train, ~700 test).
    - Filter out everything except labels `0, 1, 2, 8` and remap them to
@@ -245,7 +353,7 @@ T4 GPU finishes in ~10-20 minutes, vs. several hours on a laptop CPU.
    - Log hyperparameters and per-epoch metrics to MLflow.
    - Save the model + tokenizer to `./saved_model/`.
 
-### 3.3 Download the saved model
+### Download the saved model
 
 ```python
 !zip -r saved_model.zip saved_model
@@ -267,22 +375,63 @@ legal-doc-classifier/
     +-- ... (other HuggingFace files)
 ```
 
-> NOTE: HuggingFace splits checkpoints across several files by default;
-> that's fine - the loader just needs the whole directory.
+> **NOTE:** HuggingFace splits checkpoints across several files by
+> default; that is fine - the loader just needs the whole directory.
 
-### 3.4 What is happening
+## Under the Hood
 
-- **LexGLUE SCOTUS** is a benchmark of U.S. Supreme Court opinions, each
-  labelled with one of 14 issue areas. We discard 10 of them because we
-  only want four coarse classes.
-- **Fine-tuning** adjusts the final classification head (and gently the
-  encoder) to fit those four classes. The encoder's prior knowledge of
-  legal English is what makes 3 epochs enough.
-- **MLflow logging** happens through a local SQLite or in-memory
-  tracking URI. When you stand up the `mlflow` service in Step 4, the
-  same runs will appear in the UI at `http://localhost:5000`.
+### Tokenization
 
-### 3.5 Verify
+Legal-BERT's tokenizer is a WordPiece tokenizer pre-trained on legal
+text. It splits each input sentence into **sub-word tokens** - rare
+words get broken into common pieces (`petitioner` -> `petit` + `##ioner`),
+and every token maps to an integer ID in a 30 k-entry vocabulary.
+
+The `transformers` library handles this for you: `tokenizer(text,
+padding=True, truncation=True, max_length=512)` returns three tensors -
+`input_ids`, `attention_mask`, and (sometimes) `token_type_ids` - that
+are the actual numeric inputs to the model.
+
+### Attention
+
+Every transformer layer uses **self-attention**: each token looks at
+every other token in the same input and asks "how relevant are you to
+my meaning?" A 12-layer, 768-hidden BERT-base has 12 such attention
+heads per layer, which is what gives the model its deep sense of
+context. For a 512-token input, each layer runs 512 * 512 = 262 k
+attention comparisons, so a forward pass is not free.
+
+### Fine-tuning vs. pre-training
+
+Pre-training teaches the model general language understanding.
+Fine-tuning teaches the model a **specific task** - in our case,
+4-class classification. During fine-tuning we:
+
+- Replace BERT's original pre-training head with a fresh 4-class head.
+- Continue training on the SCOTUS labels, with all weights unfrozen.
+- Use a **small learning rate** (2e-5) so the model doesn't catastrophically
+  forget the legal vocabulary it already knows.
+
+### Learning rate and epochs
+
+The two most important fine-tuning hyperparameters are:
+
+- **Learning rate** - we use `2e-5`. Higher (1e-4) usually destroys
+  pre-training; lower (1e-6) learns too slowly.
+- **Epochs** - we use **3**. Validation loss typically bottoms out by
+  epoch 2 or 3; going further overfits.
+
+If you change either, re-run the script and compare the new MLflow run
+against the previous one in the MLflow UI.
+
+### MLflow logging
+
+MLflow logging happens through a local SQLite or in-memory tracking URI
+inside the Colab session. When you stand up the `mlflow` service in
+Chapter 3, the **same** run is visible at `http://localhost:5000`
+because `train.py` writes to a file the docker volume mounts.
+
+## Verification
 
 Inside Colab, after training:
 
@@ -293,36 +442,47 @@ t = AutoTokenizer.from_pretrained("./saved_model")
 print(m.config.num_labels)   # should print 4
 ```
 
-If that prints `4` and the API is happy in Step 4, the model is healthy.
+If that prints `4`, the model is healthy and is ready to be moved into
+the project root for Chapter 3.
 
-### 3.6 Troubleshooting
+## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `CUDA out of memory` | Lower per-device batch size in the training script (e.g. 4) |
-| `datasets` download hangs | Re-run; LexGLUE is ~50 MB |
-| `Runtime disconnected` | Colab idle timeout - keep the tab focused or use Colab Pro |
+| Symptom                    | Cause                              | Fix                                                           |
+|----------------------------|------------------------------------|---------------------------------------------------------------|
+| `CUDA out of memory`       | Batch size too large for the GPU   | Lower per-device batch size in the training script (e.g. 4)   |
+| `datasets` download hangs  | Slow / blocked network             | Re-run; LexGLUE is ~50 MB                                     |
+| `Runtime disconnected`     | Colab idle timeout                 | Keep the tab focused or use Colab Pro                         |
+| `mlflow` not finding the run later | Tracking URI mismatch       | Re-train with the same tracking URI; MLflow runs are not portable across URIs by default |
+
 
 ---
 
-## Step 4 - Serve the model with FastAPI and Docker
+# Chapter 3: Deploy the API
 
-**Goal.** Run the saved model behind a REST API on `http://localhost:8000`
-so any client (curl, PowerShell, a web page) can classify text.
+> **Why this chapter exists.** A model on disk does not help anyone.
+> This chapter wraps the model in a long-running HTTP service so any
+> client (a browser, a notebook, a CI test) can send text and get a
+> label back. We use FastAPI for the framework and Docker for the
+> runtime so the API behaves the same on your laptop, your CI box, and
+> a cloud VM.
 
-### 4.1 What we are building
+## What You Will Build
 
-A single container (`api`) that:
+A FastAPI service exposing three endpoints:
 
-- Loads the model **once** at startup (not per request) via FastAPI's
-  `lifespan` context.
-- Exposes `POST /predict` -> `{ label, confidence }`.
-- Exposes `GET /health` -> `{ "status": "ok" }`.
-- Exposes `GET /metrics` -> Prometheus text format (Step 5).
+| Method | Path        | Purpose                                          |
+|--------|-------------|--------------------------------------------------|
+| POST   | `/predict`  | Run inference, return `{ label, confidence }`    |
+| GET    | `/health`   | Liveness probe - returns `{ "status": "ok" }`    |
+| GET    | `/metrics`  | Prometheus text format (consumed in Chapter 4)   |
 
+The service is a single Docker container (`api`) that loads the model
+**once** at startup (not per request) via FastAPI's `lifespan` context.
 A second container (`mlflow`) hosts the experiment-tracking UI.
 
-### 4.2 Steps
+## Implementation
+
+### Build and start the stack
 
 ```powershell
 # Make sure Docker Desktop is running
@@ -332,8 +492,8 @@ docker version | Select-String "Server Version"
 Get-ChildItem .\saved_model
 ```
 
-You should see `config.json`, `pytorch_model.bin` (or `model.safetensors`),
-`tokenizer.json`, `vocab.txt`, etc.
+You should see `config.json`, `pytorch_model.bin` (or
+`model.safetensors`), `tokenizer.json`, `vocab.txt`, etc.
 
 ```powershell
 # Build and start the stack (api + mlflow for now)
@@ -351,7 +511,7 @@ docker compose ps
 
 You should see `api` and `mlflow` in state `Up` / `running`.
 
-### 4.3 Send your first prediction
+### Send your first prediction
 
 In a new PowerShell window:
 
@@ -373,21 +533,64 @@ You can also visit the auto-generated API docs at
 **http://localhost:8000/docs** and try the endpoint from a browser
 with a "Try it out" button.
 
-### 4.4 What is happening
+## Under the Hood
 
-- `Dockerfile` extends `python:3.10-slim`, installs `requirements.txt`,
-  copies `app/` and `saved_model/`, and runs `uvicorn app.main:app`.
-- `app/main.py` uses `lifespan` to load the model **once**. Loading a
-  transformer takes a few seconds; doing it per request would multiply
-  latency by 100x.
-- `app/model_loader.py` is a thin wrapper around
-  `transformers.AutoModelForSequenceClassification` that returns
-  `(label_name, confidence)`. Keeping it in its own module means we
-  can unit-test it without importing FastAPI.
-- `docker-compose.yml` mounts `MODEL_DIR=/app/saved_model` so the loader
-  knows where to look inside the container.
+### Docker
 
-### 4.5 Verify
+A Docker image is a sealed snapshot of a filesystem plus a command to
+run. The lab's `Dockerfile` extends `python:3.10-slim`, installs
+`requirements.txt`, copies `app/` and `saved_model/`, and runs
+`uvicorn app.main:app`:
+
+```
+FROM python:3.10-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app/ ./app/
+COPY saved_model/ ./saved_model/
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+The `COPY saved_model/` line is the **entire reason** that directory
+has to exist before building. Compose binds the host's `saved_model/`
+to `/app/saved_model` inside the container so re-training on the host
+becomes visible to the API on the next container restart.
+
+### Uvicorn
+
+**Uvicorn** is the ASGI server that actually runs FastAPI. ASGI is the
+async successor to WSGI - it lets FastAPI serve many requests
+concurrently from a single process. The `0.0.0.0` host is intentional:
+it tells uvicorn to listen on every network interface inside the
+container, not just `127.0.0.1` (which would block Docker port-mapping).
+
+### FastAPI lifespan
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    model_loader.load()
+    yield
+    # shutdown logic, if any
+```
+
+This block runs **once** at startup and again at shutdown. Loading a
+transformer takes a few seconds; doing it per request would multiply
+latency by 100x. FastAPI's `@asynccontextmanager` is the modern
+replacement for the deprecated `@app.on_event("startup")` hook.
+
+### Model caching
+
+`app/model_loader.py` is a thin wrapper around
+`transformers.AutoModelForSequenceClassification` that returns
+`(label_name, confidence)`. It keeps the loaded model on a module-level
+variable so the lifespan code only loads once and every request gets
+the same instance. Keeping this out of `main.py` means we can unit-test
+it without importing FastAPI.
+
+## Verification
 
 ```powershell
 # Health check
@@ -399,47 +602,69 @@ docker compose logs -f api
 ```
 
 You should see a single `Uvicorn running on http://0.0.0.0:8000` line
-and no error tracebacks.
+and no error tracebacks. Then:
 
-### 4.6 Troubleshooting
+```powershell
+# Hit /predict a few times with different texts
+1..5 | ForEach-Object {
+  Invoke-RestMethod -Method Post -Uri "http://localhost:8000/predict" `
+    -ContentType "application/json" `
+    -Body '{"text":"The court held that the search violated the Fourth Amendment."}'
+}
+```
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `OSError: saved_model not found` | `saved_model/` is empty or at the wrong path | Re-run Step 3, unzip into project root |
-| Container restarts in a loop | Model load crashed | `docker compose logs api` - look for the stack trace |
-| `port 8000 already in use` | Another process on 8000 | Edit `docker-compose.yml` to map `8001:8000` |
-| `curl` works but `Invoke-RestMethod` fails | Wrong content type | Always pass `-ContentType "application/json"` |
+All five calls should complete in under a second, with the same
+`Criminal Procedure` label.
+
+## Troubleshooting
+
+| Symptom                              | Cause                              | Fix                                                            |
+|--------------------------------------|------------------------------------|----------------------------------------------------------------|
+| `OSError: saved_model not found`     | `saved_model/` empty or wrong path | Re-run Chapter 2, unzip into project root                      |
+| Container restarts in a loop         | Model load crashed                 | `docker compose logs api` - look for the stack trace           |
+| `port 8000 already in use`           | Another process on 8000            | Edit `docker-compose.yml` to map `8001:8000`                   |
+| `Invoke-RestMethod` returns 415       | Wrong content type                 | Always pass `-ContentType "application/json"`                  |
+| `curl` works, browser does not       | CORS middleware missing            | Already enabled in `app/main.py` - rebuild the api container   |
 
 ---
 
-## Step 5 - Observe the service with Prometheus + Grafana
+# Chapter 4: MLOps Monitoring
 
-**Goal.** Add a metrics pipeline so we can see, in real time, how often
-the API is called, how slow it is, what labels it predicts, and how
-many errors it throws.
+> **Why this chapter exists.** A deployed model is a black box unless
+> you measure it. This chapter adds a metrics pipeline so we can see,
+> in real time, how often the API is called, how slow it is, what
+> labels it predicts, and how many errors it throws. With these signals
+> in place, you can spot regressions, capacity issues, and data drift
+> before users complain.
 
-### 5.1 What we are adding
+## What You Will Build
 
-| Service | Port | Role |
-|---------|------|------|
-| Prometheus | 9090 | Polls `api:8000/metrics` every 15 s, stores time-series |
-| Grafana    | 3000 | Queries Prometheus, renders the dashboard |
+A monitoring pipeline that fans out from the API into a queryable
+time-series store and a dashboard:
 
-Both are added to `docker-compose.yml` as two more services, but the
-existing `api` does not need to change - it already exposes `/metrics`
-through the `prometheus_client` library.
+```
+   FastAPI (/metrics)
+        |
+        v
+   Prometheus    (scrapes every 15 s, stores time-series)
+        |
+        v
+      Grafana     (queries Prometheus, renders the dashboard)
+```
 
-### 5.2 Metrics being collected
+Two new services join `docker-compose.yml`:
 
-| Metric | Type | What it tells you |
-|--------|------|-------------------|
-| `legal_classifier_prediction_latency_seconds` | Histogram | Per-request inference time |
-| `legal_classifier_prediction_confidence` | Gauge | Confidence of the most recent prediction |
-| `legal_classifier_prediction_label_total{label="..."}` | Counter | Lifetime count per predicted class |
-| `legal_classifier_request_total` | Counter | Total `/predict` calls |
-| `legal_classifier_error_total` | Counter | Total failed calls |
+| Service     | Port  | Role                                              |
+|-------------|-------|---------------------------------------------------|
+| Prometheus  | 9090  | Polls `api:8000/metrics` every 15 s, stores data  |
+| Grafana     | 3000  | Queries Prometheus, renders the dashboard         |
 
-### 5.3 Steps
+The `api` service does not need to change - it already exposes
+`/metrics` through the `prometheus_client` library.
+
+## Implementation
+
+### Bring up the full stack
 
 ```powershell
 # Bring up the full stack (4 services)
@@ -451,8 +676,9 @@ docker compose ps
 
 You should see `api`, `mlflow`, `prometheus`, `grafana` all in `Up`.
 
+### Verify Prometheus can reach the API
+
 ```powershell
-# 1. Verify Prometheus can reach the API
 Invoke-RestMethod http://localhost:9090/api/v1/targets |
   Select-Object -ExpandProperty data |
   ForEach-Object { "$($_.labels.job): $($_.health)" }
@@ -460,8 +686,9 @@ Invoke-RestMethod http://localhost:9090/api/v1/targets |
 # -> prometheus: up
 ```
 
+### Generate traffic so the dashboard has something to show
+
 ```powershell
-# 2. Generate traffic so the dashboard has something to show
 1..20 | ForEach-Object {
   Invoke-RestMethod -Method Post -Uri "http://localhost:8000/predict" `
     -ContentType "application/json" `
@@ -469,14 +696,15 @@ Invoke-RestMethod http://localhost:9090/api/v1/targets |
 }
 ```
 
+### Open the Grafana dashboard
+
 ```powershell
-# 3. Open the Grafana dashboard
 Start-Process http://localhost:3000
 ```
 
-Log in with `admin` / `admin` (the env vars in `docker-compose.yml`
+Log in with `admin` / `admin`. The env vars in `docker-compose.yml`
 disable the password-reset prompt and allow anonymous access for local
-development). The dashboard titled **"Legal Document Classifier -
+development. The dashboard titled **"Legal Document Classifier -
 Monitoring"** is auto-loaded in the **Legal Classifier** folder.
 
 You should see:
@@ -486,25 +714,68 @@ You should see:
 - **Label Prediction Counts** filling in
 - **Average Prediction Latency** holding steady around 100-400 ms
 
-### 5.4 What is happening
+## Under the Hood
 
-- `prometheus.yml` declares one scrape job,
-  `legal-classifier-api`, that points at `api:8000/metrics` every
-  15 seconds. `api` resolves via Docker's internal DNS to the API
-  container's IP.
-- `prometheus_client` in `app/main.py` registers five collectors and
-  exposes them in Prometheus text format on `GET /metrics`. The
-  `try/except/finally` block in `predict()` records latency on
-  *both* success and failure paths.
-- `grafana/provisioning/datasources/prometheus.yml` registers
-  Prometheus as the default Grafana data source, and
-  `grafana/provisioning/dashboards/dashboards.yml` points Grafana at
-  `/var/lib/grafana/dashboards`, which is bind-mounted to
-  `./grafana/dashboards/` on the host.
-- The dashboard JSON references the datasource by **name** (`Prometheus`),
-  not by UID, so Grafana's auto-generated UIDs don't break panel binding.
+### Metrics being collected
 
-### 5.5 Verify
+| Metric                                              | Type      | What it tells you                              |
+|-----------------------------------------------------|-----------|------------------------------------------------|
+| `legal_classifier_prediction_latency_seconds`       | Histogram | Per-request inference time                     |
+| `legal_classifier_prediction_confidence`            | Gauge     | Confidence of the most recent prediction       |
+| `legal_classifier_prediction_label_total{label=...}`| Counter   | Lifetime count per predicted class             |
+| `legal_classifier_request_total`                    | Counter   | Total `/predict` calls                         |
+| `legal_classifier_error_total`                      | Counter   | Total failed calls                             |
+
+### How Prometheus scrapes the API
+
+`prometheus.yml` declares one scrape job, `legal-classifier-api`,
+that points at `api:8000/metrics` every 15 seconds. `api` resolves
+via Docker's internal DNS to the API container's IP:
+
+```yaml
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: legal-classifier-api
+    static_configs:
+      - targets: ["api:8000"]
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+```
+
+The first job scrapes our service; the second lets Prometheus report
+on **itself** (useful when you start adding alert rules).
+
+### How the API exposes metrics
+
+`prometheus_client` in `app/main.py` registers five collectors and
+exposes them in Prometheus text format on `GET /metrics`. The
+`try/except/finally` block in `predict()` records latency on **both**
+success and failure paths - the `finally` block calls
+`PREDICTION_LATENCY.observe(time.monotonic() - start)` whether the
+call succeeded or raised. Without this, error paths would be invisible.
+
+### How Grafana picks up the dashboard
+
+`grafana/provisioning/datasources/prometheus.yml` registers Prometheus
+as the default Grafana data source, and
+`grafana/provisioning/dashboards/dashboards.yml` points Grafana at
+`/var/lib/grafana/dashboards`, which is bind-mounted to
+`./grafana/dashboards/` on the host. The dashboard JSON references
+the datasource by **name** (`Prometheus`), not by UID, so Grafana's
+auto-generated UIDs don't break panel binding.
+
+The six panels in `dashboard.json` are:
+
+1. **Latency** (timeseries) - histogram quantile
+2. **Confidence** (timeseries) - gauge
+3. **Label counts** (bar chart) - `sum by (label) (...)`
+4. **Request rate** (timeseries) - `rate(...[1m])`
+5. **Error rate** (stat with thresholds) - `rate(...[5m])`
+6. **Total requests** (stat) - simple counter
+
+## Verification
 
 ```powershell
 # Raw metrics
@@ -526,23 +797,28 @@ legal_classifier_request_total 20.0
 (Invoke-WebRequest "http://localhost:9090/api/v1/query?query=rate(legal_classifier_request_total[1m])").Content
 ```
 
-### 5.6 Troubleshooting
+If both return data, the entire metrics pipeline is wired correctly.
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Prometheus target `down` | `api:8000` not reachable | `docker compose logs api` - is the model loaded? |
-| Grafana panel "No data" | Datasource binding broken | Re-upload the dashboard (see `scripts/reload_dashboard.ps1`) |
-| `/metrics` returns HTML 404 | uvicorn not running the new code | `docker compose up -d --build api` |
-| Grafana asks to change the password | `GF_SECURITY_DISABLE_INITIAL_ADMIN_PASSWORD_RESET` missing | Already set in `docker-compose.yml`; recreate the container with `docker compose up -d --force-recreate grafana` |
+## Troubleshooting
+
+| Symptom                                          | Cause                                | Fix                                                                              |
+|--------------------------------------------------|--------------------------------------|----------------------------------------------------------------------------------|
+| Prometheus target `down`                         | `api:8000` not reachable             | `docker compose logs api` - is the model loaded?                                 |
+| Grafana panel "No data"                          | Datasource binding broken            | Re-upload the dashboard (see `scripts/reload_dashboard.ps1`)                     |
+| `/metrics` returns HTML 404                      | uvicorn not running the new code     | `docker compose up -d --build api`                                               |
+| Grafana asks to change the password              | `GF_SECURITY_DISABLE_INITIAL_ADMIN_PASSWORD_RESET` missing | Already set in `docker-compose.yml`; recreate with `docker compose up -d --force-recreate grafana` |
 
 ---
 
-## Step 6 - Use the web frontend
+# Chapter 5: User Interface
 
-**Goal.** Give non-technical viewers a friendly way to classify text
-without touching `curl` or PowerShell.
+> **Why this chapter exists.** Not every user of this system is a
+> developer. This chapter gives non-technical viewers a friendly way
+> to classify text without touching `curl` or PowerShell. It also
+> doubles as a smoke test for the API - if the page can reach the
+> service, you know the network and CORS are healthy.
 
-### 6.1 What we are adding
+## What You Will Build
 
 A single static file, `index.html`, that:
 
@@ -553,70 +829,205 @@ A single static file, `index.html`, that:
 - Shows a spinner during inference and an error message if the API
   is unreachable.
 
-### 6.2 Steps
+The four label colours (red, blue, green, amber) are defined in a
+small `:root` CSS block at the top of the file and are easy to retheme.
 
-Option A - **open the file directly:**
+```
++----------------------------------------------+
+|  Legal Document Classifier                   |
+|  -----------------------------------------   |
+|  [ text area: paste a paragraph of legal     |
+|    text here, e.g. a Supreme Court excerpt ] |
+|                                              |
+|  [ Classify ]                                |
+|                                              |
+|  -> Criminal Procedure    (0.84)             |
++----------------------------------------------+
+```
+
+## Implementation
+
+You have two options for hosting the page.
+
+### Option A - open the file directly
 
 ```powershell
 Start-Process .\index.html
 ```
 
-Option B - **publish to GitHub Pages:**
+The page calls `http://localhost:8000/predict` directly, so the browser
+must be on a machine that can reach the API.
+
+### Option B - publish to GitHub Pages
 
 1. Push `index.html` to the repo's `main` branch.
 2. In GitHub -> **Settings -> Pages**, set the source to `main / root`.
 3. After ~30 s, your page is live at
-   `https://<owner>.github.io/legal-doc-classifier/`.
+   `https://<owner>.github.io/legal-doc-classifier-observability/`.
 
-### 6.3 What is happening
+## Under the Hood
 
-- The page is **plain HTML + CSS + vanilla JavaScript** - no build
-  step, no framework, no bundler. You can read the entire file in
-  one screen.
-- It calls `http://localhost:8000/predict` directly, so the browser
-  must be on a machine that can reach the API. From GitHub Pages
-  this means the visitor's own machine must be running the Docker
-  stack, or the API must be exposed behind a CORS-enabled public URL.
-- The four label colours (red, blue, green, amber) are defined in
-  a small `:root` CSS block at the top of the file and are easy to
-  retheme.
+The page is **plain HTML + CSS + vanilla JavaScript** - no build step,
+no framework, no bundler. You can read the entire file in one screen.
 
-### 6.4 Verify
+Two implementation details worth noting:
+
+- The page calls `http://localhost:8000/predict` directly, so the
+  browser must be on a machine that can reach the API. From GitHub
+  Pages this means the visitor's own machine must be running the
+  Docker stack, or the API must be exposed behind a CORS-enabled
+  public URL.
+- The four label colours are defined in a `:root` CSS block and used
+  by adding/removing a single class on the result badge.
+
+## Verification
 
 1. Type a paragraph of legal text into the box.
 2. Click **Classify**.
 3. Within ~1 second you should see a coloured badge with the topic
    area and a confidence percentage.
 
-### 6.5 Troubleshooting
+If the badge shows **Criminal Procedure** for *The defendant was
+charged with assault and battery*, the full stack - frontend, API,
+model, metrics - is working end-to-end.
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| "Could not connect to API" | Docker stack not running | Run Step 4 to start it |
-| CORS error in browser console | GitHub Pages calling `localhost` | Run the API on a CORS-enabled public host, or open `index.html` locally |
-| Page loads but button does nothing | JavaScript disabled | Re-enable JS in the browser |
+## Troubleshooting
+
+| Symptom                          | Cause                                | Fix                                                                            |
+|----------------------------------|--------------------------------------|--------------------------------------------------------------------------------|
+| "Could not connect to API"       | Docker stack not running             | Run Chapter 3 to start it                                                       |
+| CORS error in browser console    | GitHub Pages calling `localhost`     | Run the API on a CORS-enabled public host, or open `index.html` locally        |
+| Page loads but button does nothing | JavaScript disabled                | Re-enable JS in the browser                                                     |
 
 ---
 
+# Chapter 6: Complete System Validation
+
+> **Why this chapter exists.** Most READMEs end after a happy-path
+> walkthrough. This chapter is the missing piece: a single,
+> ordered, end-to-end test that you can run from a fresh machine to
+> prove the entire system works. It is also the script to follow when
+> you come back to this project in six months and want to be sure
+> nothing rotted.
+
+## End-to-End Test
+
+Follow these ten steps in order. Each step is something you have
+already done in earlier chapters - this chapter is the rehearsal.
+
+1. **Train the model.** In Colab, run `train.py` and download
+   `saved_model.zip`.
+2. **Save the model.** Unzip into the project root so `saved_model/`
+   contains the model and tokenizer files.
+3. **Start Docker.** Confirm `docker version` shows a Server section.
+4. **Test the API.** `Invoke-RestMethod` against `/predict` returns a
+   label and confidence.
+5. **Generate traffic.** Send 20+ predictions so the dashboard has
+   something to plot.
+6. **Open Grafana.** `http://localhost:3000`, log in `admin` / `admin`.
+7. **Open Prometheus.** `http://localhost:9090`, check
+   `/api/v1/targets` for the `legal-classifier-api` job being `up`.
+8. **Open the frontend.** Either `Start-Process .\index.html` or
+   visit the GitHub Pages URL.
+9. **Submit legal text.** Type or paste a paragraph and click
+   **Classify**.
+10. **Verify dashboard updates.** Within ~15 seconds, the
+    **Total Requests**, **Request Rate**, and **Label Prediction
+    Counts** panels all move.
+
+If all ten steps pass, you have reproduced an end-to-end MLOps
+workflow: training, serving, monitoring, visualization, and end-user
+interface - the same shape used in real production legal-tech systems.
+
+---
+
+# Epilogue: The Complete System
+
+Take a step back. You have just built, deployed, and validated six
+distinct components. Here is the role each one played:
+
+| Component   | Purpose                                                  |
+|-------------|----------------------------------------------------------|
+| Legal-BERT  | The classifier itself - domain-adapted transformer       |
+| FastAPI     | The serving layer - HTTP API around the model            |
+| Docker      | The deployment layer - reproducible runtime environment  |
+| MLflow      | Experiment tracking - hyperparameters and metrics       |
+| Prometheus  | Monitoring - time-series of inference signals            |
+| Grafana     | Visualization - dashboard for humans                     |
+| Frontend    | User interaction - browser-based classifier UI           |
+
+## The Principles
+
+Five design principles fall out of the architecture you just built.
+Keep these in mind when you adapt the lab to a new domain.
+
+1. **Fine-tune before deployment.** A domain-specific model is
+   dramatically better than a general one for legal text.
+2. **Load once, predict many.** Cache the model at API startup so
+   every request gets a sub-second response.
+3. **Monitor everything.** Every prediction should emit a metric; you
+   cannot improve what you cannot see.
+4. **Containerize for reproducibility.** Docker ensures the dev
+   machine, the CI box, and production behave identically.
+5. **Separate concerns.** Training, serving, monitoring, and
+   visualization are independent services. Swap any one of them
+   without touching the others.
+
+## End-to-End Validation
+
+The shortest possible workflow that exercises every component:
+
+```powershell
+# 1. Clone the project
+git clone https://github.com/bountyhunter12/legal-doc-classifier-observability.git
+cd legal-doc-classifier-observability
+
+# 2. Train the model in Colab (see Chapter 2)
+#    Download saved_model.zip and unzip into the project root.
+
+# 3. Start all services
+docker compose up -d --build
+
+# 4. Test the API
+Invoke-RestMethod -Method Post -Uri "http://localhost:8000/predict" `
+  -ContentType "application/json" `
+  -Body '{"text":"The defendant was charged with assault and battery."}'
+
+# 5. Generate load
+1..20 | ForEach-Object {
+  Invoke-RestMethod -Method Post -Uri "http://localhost:8000/predict" `
+    -ContentType "application/json" `
+    -Body '{"text":"The court held that the search violated the Fourth Amendment."}'
+}
+
+# 6. Open dashboards
+Start-Process http://localhost:5000   # MLflow
+Start-Process http://localhost:9090   # Prometheus
+Start-Process http://localhost:3000   # Grafana (admin / admin)
+
+# 7. Open the frontend
+Start-Process .\index.html
+```
+
+If those seven steps work, you have a working MLOps pipeline.
+
 ## Reference
 
-Everything in this section is reference material - anatomy of the key
-files, port/URL cheat sheet, useful one-liners, and the full
-requirements list. You don't need to read it linearly; flip to it when
-you need it.
+Anatomy of the key files, useful one-liners, and the requirements list.
+Flip to it when you need it.
 
 ### A. Anatomy of the key files
 
 #### `app/main.py`
 
-```python
-# Imports FastAPI, the model loader, and prometheus_client
-# Defines five metrics (Histogram, Gauge, Counter x3)
-# Wraps predict() with try/except/finally to record latency
-# Exposes /predict, /health, and /metrics
+```
+Imports FastAPI, the model loader, and prometheus_client
+Defines five metrics (Histogram, Gauge, Counter x3)
+Wraps predict() with try/except/finally to record latency
+Exposes /predict, /health, and /metrics
 ```
 
-The full file is short (~100 lines). Two patterns to study:
+Two patterns to study:
 
 - **Lifespan loading** - `@asynccontextmanager async def lifespan(app):`
   loads the model once at startup. Per-request loading would be 100x slower.
@@ -687,15 +1098,15 @@ for per-second rates, `sum by (label) (...)` for per-class counts.
 
 ### B. Service URL reference
 
-| Service     | URL                            | Default credentials |
-|-------------|--------------------------------|---------------------|
-| FastAPI     | http://localhost:8000          | - |
-| API docs    | http://localhost:8000/docs     | - |
-| Health      | http://localhost:8000/health   | - |
-| Raw metrics | http://localhost:8000/metrics  | - |
-| MLflow UI   | http://localhost:5000          | - |
-| Prometheus  | http://localhost:9090          | - |
-| Grafana     | http://localhost:3000          | `admin` / `admin`   |
+| Service        | URL                              | Default credentials |
+|----------------|----------------------------------|---------------------|
+| FastAPI        | http://localhost:8000            | -                   |
+| API docs       | http://localhost:8000/docs       | -                   |
+| Health         | http://localhost:8000/health     | -                   |
+| Raw metrics    | http://localhost:8000/metrics    | -                   |
+| MLflow UI      | http://localhost:5000            | -                   |
+| Prometheus     | http://localhost:9090            | -                   |
+| Grafana        | http://localhost:3000            | `admin` / `admin`   |
 
 ### C. Useful one-liners
 
@@ -725,5 +1136,27 @@ powershell -ExecutionPolicy Bypass -File .\scripts\reload_dashboard.ps1
 
 - Docker Desktop 4.x or newer
 - Python 3.10+ (only if you want to run uvicorn directly without Docker)
-- A Google account (for Step 3)
+- A Google account (for Chapter 2)
 - ~5 GB free disk for the saved model and Docker images
+
+## Troubleshooting
+
+One consolidated table for the whole lab, in the order a new viewer
+will hit the problems.
+
+| Problem                              | Solution                                              |
+|--------------------------------------|-------------------------------------------------------|
+| Docker not running                   | Start Docker Desktop, wait 30 s, retry                |
+| `docker: command not found`         | Reinstall Docker Desktop or add `C:\Program Files\Docker\Docker\resources\bin` to `PATH` |
+| WSL2 kernel missing                  | `wsl --install` from an elevated PowerShell, then reboot |
+| Missing model (`OSError: saved_model not found`) | Re-run Chapter 2, unzip into project root |
+| API fails with stack trace           | `docker compose logs api` - check the trace           |
+| Port 8000 already in use             | Edit `docker-compose.yml` to map `8001:8000`          |
+| `port 5000 already in use`           | Stop the local MLflow or remap to `5001:5000`         |
+| Grafana dashboard empty              | Send 20+ predictions, then refresh                    |
+| Grafana "No data" on a panel         | Re-upload the dashboard via `scripts/reload_dashboard.ps1` |
+| Grafana asks to change the password  | Recreate the container: `docker compose up -d --force-recreate grafana` |
+| Frontend CORS error                  | Open `index.html` locally or run the API on a CORS-enabled public host |
+| Frontend "Could not connect to API"  | The Docker stack is not running - run Chapter 3       |
+| Training `CUDA out of memory`        | Lower per-device batch size in the training script    |
+| Training `Runtime disconnected`      | Colab idle timeout - keep the tab focused or use Colab Pro |
