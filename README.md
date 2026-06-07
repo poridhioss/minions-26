@@ -158,6 +158,8 @@ We **fine-tune** it on the SCOTUS split of the
 [LexGLUE](https://huggingface.co/datasets/coastalcph/lex_glue)
 benchmark. Fine-tuning is short (3 epochs) because the heavy lifting
 was already done in pre-training.
+## User Interface
+<img width="1322" height="592" alt="image" src="https://github.com/user-attachments/assets/2c84aba6-3b5d-4fe5-a6fd-af7648a13433" />
 
 ## Implementation
 
