@@ -56,7 +56,8 @@ By the end of this lab, you will be able to:
 Before we write a single command, it helps to see the full pipeline as
 one picture. Each box becomes a chapter later in the lab.
 
-<img width="453" height="599" alt="image" src="https://github.com/user-attachments/assets/5f8d56a3-a513-4a84-954e-90b0fb078f94" />
+<img width="955" height="1011" alt="legal-Page-3 drawio (1)" src="https://github.com/user-attachments/assets/461466f1-3e34-4ba4-bb26-ebedcbd4175a" />
+
 
 
 The two side-channels you don't see in the picture are **MLflow**
