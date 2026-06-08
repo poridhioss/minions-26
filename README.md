@@ -136,8 +136,7 @@ We **fine-tune** it on the SCOTUS split of the
 [LexGLUE](https://huggingface.co/datasets/coastalcph/lex_glue)
 benchmark. Fine-tuning is short (3 epochs) because the heavy lifting
 was already done in pre-training.
-## User Interface
-<img width="1841" height="837" alt="Screenshot 2026-06-03 201102" src="https://github.com/user-attachments/assets/e3c5133f-71b2-4ab7-b3da-7cf51b5ddc3f" />
+
 
 
 ## Implementation
@@ -800,18 +799,7 @@ A single static file, `index.html`, that:
 The four label colours (red, blue, green, amber) are defined in a
 small `:root` CSS block at the top of the file and are easy to retheme.
 
-```
-+----------------------------------------------+
-|  Legal Document Classifier                   |
-|  -----------------------------------------   |
-|  [ text area: paste a paragraph of legal     |
-|    text here, e.g. a Supreme Court excerpt ] |
-|                                              |
-|  [ Classify ]                                |
-|                                              |
-|  -> Criminal Procedure    (0.84)             |
-+----------------------------------------------+
-```
+<img width="1841" height="837" alt="Screenshot 2026-06-03 201102" src="https://github.com/user-attachments/assets/e3c5133f-71b2-4ab7-b3da-7cf51b5ddc3f" />
 
 ## Implementation
 
