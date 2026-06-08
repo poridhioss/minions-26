@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Document Classifier</title>
+  <meta name="description" content="Classify legal text into SCOTUS topic areas using a fine-tuned Legal-BERT model." />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-card: #131a30;
+      --border: #1f2a44;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --danger: #ef4444;
+      --radius: 12px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: radial-gradient(ellipse at top, #1a2347 0%, var(--bg) 60%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app { max-width: 760px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #818cf8 0%, #22d3ee 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    header p { color: var(--muted); font-size: 0.95rem; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      resize: vertical;
+      padding: 0.875rem 1rem;
+      background: #0b1020;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    textarea::placeholder { color: #475569; }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .result, .error, .loading {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .hidden { display: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      margin-bottom: 1rem;
+      color: white;
+      letter-spacing: 0.01em;
+    }
+    .badge.criminal-procedure { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .badge.civil-rights        { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .badge.first-amendment     { background: linear-gradient(135deg, #a855f7, #7e22ce); }
+    .badge.economic-activity   { background: linear-gradient(135deg, #f59e0b, #b45309); }
+    .badge.unknown             { background: linear-gradient(135deg, #64748b, #334155); }
+
+    .confidence {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      color: var(--muted);
+    }
+    .confidence-value {
+      font-weight: 700;
+      color: var(--accent-hover);
+      font-size: 1.1rem;
+    }
+
+    .bar {
+      height: 8px;
+      background: #0b1020;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #22d3ee);
+      width: 0%;
+      transition: width 0.6s ease-out;
+    }
+
+    .error { border-color: rgba(239, 68, 68, 0.5); }
+    .error strong { color: var(--danger); margin-right: 0.25rem; }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(99, 102, 241, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer code {
+      background: var(--bg-card);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 480px) {
+      .meta { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Legal Document Classifier</h1>
+      <p>Classify a passage of legal text into one of four SCOTUS topic areas using a fine-tuned Legal-BERT model.</p>
+    </header>
+
+    <section class="card">
+      <label for="text-input">Legal text</label>
+      <textarea
+        id="text-input"
+        rows="8"
+        placeholder="Paste a paragraph of legal text here. For example:&#10;The defendant was charged with assault and battery after the altercation..."
+      ></textarea>
+      <div class="meta">
+        <span id="char-count">0 characters</span>
+        <button id="classify-btn" type="button">Classify Document</button>
+      </div>
+    </section>
+
+    <section id="loading" class="loading hidden" aria-live="polite">
+      <div class="spinner" role="status" aria-label="Loading"></div>
+      <span>Classifying&hellip;</span>
+    </section>
+
+    <section id="result" class="result hidden" aria-live="polite">
+      <div id="label-badge" class="badge unknown">&mdash;</div>
+      <div class="confidence">
+        <span>Confidence</span>
+        <span id="confidence-value" class="confidence-value">&mdash;</span>
+      </div>
+      <div class="bar"><div id="confidence-bar" class="bar-fill"></div></div>
+    </section>
+
+    <section id="error" class="error hidden" role="alert">
+      <strong>Error:</strong> <span id="error-message"></span>
+    </section>
+
+    <footer>
+      <p>API endpoint: <code>POST http://localhost:8000/predict</code></p>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var API_URL = 'http://localhost:8000/predict';
+
+      var LABEL_CLASSES = {
+        'Criminal Procedure': 'criminal-procedure',
+        'Civil Rights':       'civil-rights',
+        'First Amendment':    'first-amendment',
+        'Economic Activity':  'economic-activity'
+      };
+
+      var textInput       = document.getElementById('text-input');
+      var classifyBtn     = document.getElementById('classify-btn');
+      var resultEl        = document.getElementById('result');
+      var errorEl         = document.getElementById('error');
+      var loadingEl       = document.getElementById('loading');
+      var labelBadge      = document.getElementById('label-badge');
+      var confidenceValue = document.getElementById('confidence-value');
+      var confidenceBar   = document.getElementById('confidence-bar');
+      var errorMessage    = document.getElementById('error-message');
+      var charCount       = document.getElementById('char-count');
+
+      function setLoading(loading) {
+        classifyBtn.disabled = loading;
+        classifyBtn.textContent = loading ? 'Classifying\u2026' : 'Classify Document';
+        loadingEl.classList.toggle('hidden', !loading);
+        if (loading) {
+          resultEl.classList.add('hidden');
+          errorEl.classList.add('hidden');
+        }
+      }
+
+      function showError(msg) {
+        errorMessage.textContent = msg;
+        errorEl.classList.remove('hidden');
+        resultEl.classList.add('hidden');
+      }
+
+      function showResult(label, confidence) {
+        var cls = LABEL_CLASSES[label] || 'unknown';
+        labelBadge.className = 'badge ' + cls;
+        labelBadge.textContent = label;
+        var pct = (Math.round(confidence * 1000) / 10).toFixed(1);
+        confidenceValue.textContent = pct + '%';
+        // Reset to 0 first so the CSS transition runs on the next frame.
+        confidenceBar.style.width = '0%';
+        requestAnimationFrame(function () {
+          var clamped = Math.max(0, Math.min(100, confidence * 100));
+          confidenceBar.style.width = clamped.toFixed(2) + '%';
+        });
+        resultEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+      }
+
+      async function classify() {
+        var text = textInput.value.trim();
+        if (!text) {
+          showError('Please paste some legal text first.');
+          textInput.focus();
+          return;
+        }
+
+        setLoading(true);
+        try {
+          var res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
+          });
+
+          if (!res.ok) {
+            var detail = 'HTTP ' + res.status;
+            try {
+              var errBody = await res.json();
+              if (errBody && errBody.detail) detail = errBody.detail;
+            } catch (e) { /* response was not JSON */ }
+            throw new Error(detail);
+          }
+
+          var data = await res.json();
+          if (!data || typeof data.label !== 'string' || typeof data.confidence !== 'number') {
+            throw new Error('Unexpected response shape from the API.');
+          }
+          showResult(data.label, data.confidence);
+        } catch (err) {
+          var msg = (err instanceof TypeError)
+            ? 'Cannot reach the API at ' + API_URL + '. Is the Docker stack running?'
+            : err.message;
+          showError(msg);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      classifyBtn.addEventListener('click', classify);
+
+      textInput.addEventListener('input', function () {
+        var n = textInput.value.length;
+        charCount.textContent = n + ' character' + (n === 1 ? '' : 's');
+      });
+
+      // Ctrl+Enter / Cmd+Enter shortcut to submit from the textarea.
+      textInput.addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          classify();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
