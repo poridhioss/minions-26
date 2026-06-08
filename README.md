@@ -1,4 +1,4 @@
-# Legal Document Classifier - End-to-End Lab
+# Legal Document Classifier Observability
 
 > A reproducible, story-driven laboratory for building, training, serving,
 > and monitoring a Legal-BERT text classifier. This document reads like a
@@ -40,14 +40,14 @@ workflow for legal NLP - the same shape used in real legal-tech products.
 
 By the end of this lab, you will be able to:
 
-- [x] Fine-tune Legal-BERT on the SCOTUS dataset.
-- [x] Understand transformer-based legal text classification.
-- [x] Deploy a machine learning model using FastAPI.
-- [x] Containerize the application using Docker.
-- [x] Track experiments with MLflow.
-- [x] Collect inference metrics with Prometheus.
-- [x] Visualize system health using Grafana.
-- [x] Test and use the deployed model through a web interface.
+-  Fine-tune Legal-BERT on the SCOTUS dataset.
+-  Understand transformer-based legal text classification.
+-  Deploy a machine learning model using FastAPI.
+-  Containerize the application using Docker.
+-  Track experiments with MLflow.
+-  Collect inference metrics with Prometheus.
+-  Visualize system health using Grafana.
+-  Test and use the deployed model through a web interface.
 
 ---
 
