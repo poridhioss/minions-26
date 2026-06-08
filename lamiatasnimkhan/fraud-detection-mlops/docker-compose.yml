@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow/mlruns:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri /mlruns
+    networks:
+      - mlops-net
+
+  trainer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.train
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+    networks:
+      - mlops-net
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.serve
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    environment:
+      - MODEL_PATH=/app/models/model.pkl
+      - SCALER_PATH=/app/models/scaler.pkl
+    depends_on:
+      - mlflow
+    networks:
+      - mlops-net
+
+  new_service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.new
+    networks:
+      - mlops-net
+
+networks:
+  mlops-net:
+    driver: bridge
