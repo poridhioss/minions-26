@@ -1,12 +1,11 @@
 # Legal Document Classifier Observability
 
-> A reproducible, story-driven laboratory for building, training, serving,
-> and monitoring a Legal-BERT text classifier. This document reads like a
-> short textbook chapter: it opens with a challenge, sets learning goals,
+> A reproducible laboratory for building, training, serving,
+> and monitoring a Legal-BERT text classifier. 
+> It opens with a challenge, sets learning goals,
 > then walks you through six chapters of implementation, each one
 > explaining the **why** before the **how**. Work through Chapters 1 to 6
-> in order; the Epilogue is a recap and the closing Troubleshooting table
-> is your safety net.
+> in order.
 
 This lab is written so a viewer who has never seen the project can
 complete it end-to-end on a fresh Windows + Docker machine in roughly one
