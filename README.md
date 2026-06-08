@@ -115,6 +115,7 @@ default registry all work, and you are ready for Chapter 1.
 > a single mental picture of every component in the stack. This chapter
 > gives you that picture. Subsequent chapters will keep referring back
 > to the diagram and the file tree, so take five minutes to absorb them.
+<img width="716" height="631" alt="image" src="https://github.com/user-attachments/assets/7c481404-63d0-47d5-83d4-3b8f38893141" />
 
 ## What You Will Build
 
