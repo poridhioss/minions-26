@@ -1,0 +1,43 @@
+# Docker Compose for the Secure Python Code Runner
+#
+# Usage:
+#   docker compose up --build
+#
+# The API service:
+#   • builds the runner sandbox image on first run
+#   • exposes the FastAPI app on http://localhost:8000
+#   • shares the host Docker socket so it can launch sandbox containers
+#   • persists execution history in ./data/history.db
+
+services:
+  api:
+    build: .
+    container_name: code-runner-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist execution history across restarts
+      - ./data:/app/data
+      # The runner Dockerfile is mounted so the API can build the
+      # sandbox image on startup (or you can pre-build it manually).
+      - ./docker/runner:/runner-src:ro
+      # NOTE: On Windows + Docker Desktop, /var/run/docker.sock points
+      # to a WSL2 socket and is not reachable from the container. We
+      # talk to the daemon over TCP via DOCKER_HOST (host.docker.internal).
+      # The unix-socket mount is intentionally omitted on Windows.
+    environment:
+      DOCKER_HOST: tcp://host.docker.internal:2375
+      DOCKER_IMAGE: code-runner:latest
+      DOCKER_TIMEOUT: "10"
+      DOCKER_MEMORY: "128m"
+      DOCKER_CPU_QUOTA: "0.5"
+      MAX_CODE_LENGTH: "10000"
+      RATE_LIMIT_PER_MIN: "30"
+      DB_PATH: /app/data/history.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
