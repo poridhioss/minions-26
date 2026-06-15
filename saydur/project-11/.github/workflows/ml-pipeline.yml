@@ -1,0 +1,63 @@
+name: ML CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  train-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r app/requirements.txt
+
+    - name: Train model
+      run: |
+        mkdir -p model
+        python app/train.py
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v
+
+    - name: Check model accuracy
+      run: |
+        python -c "
+        import json
+        with open('model/metrics.json') as f:
+            metrics = json.load(f)
+        accuracy = metrics['accuracy']
+        print(f'Accuracy: {accuracy}')
+        assert accuracy >= 0.8, f'Accuracy too low: {accuracy}'
+        print('Accuracy check passed!')
+        "
+
+    - name: Build Docker image
+      run: |
+        docker build -t ml-model:latest .
+
+  deploy:
+    needs: train-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy success
+      run: |
+        echo "Model validated and ready for deployment!"
+        echo "Accuracy threshold passed!"

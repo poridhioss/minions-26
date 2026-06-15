@@ -1,0 +1,19 @@
+# ============================================================
+# Tells Grafana to auto-load every *.json dashboard found under
+# /var/lib/grafana/dashboards at startup. The `dashboards.json`
+# file from this folder is mounted there by docker-compose.
+# ============================================================
+
+apiVersion: 1
+
+providers:
+  - name: "Legal Classifier"
+    orgId: 1
+    folder: "Legal Classifier"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
