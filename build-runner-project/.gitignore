@@ -1,0 +1,26 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Node / React / Vite
+node_modules/
+dist/
+.vite/
+*.log
+
+# IDE / editor
+.puku/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Local build artefacts
+/build/
+/tmp/
+/*.tar
+/clone_*/

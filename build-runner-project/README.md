@@ -1,10 +1,12 @@
-# 🚀 Build Runner
+# 🚀 Build Runner — A Self-Hosted GitHub Actions Clone
 
-> Paste a GitHub URL → get a Docker image on `ghcr.io` and a running container on port 8080.
-> A self-hosted, mini-CI that clones, builds, pushes, and deploys in one click.
+> **Author:** Iftakhar Alam
+> **Project 7:** Create a custom self-hosted image build runner like GitHub Actions on free-tier EC2 — accept build jobs, spin isolated runners, build images, and stream CI logs live.
+
+Paste a GitHub URL → get a Docker image on `ghcr.io` and a running container on port 8080.
+A self-hosted, mini-CI that clones, builds, pushes, and deploys in one click.
 
 ![Build Runner Dashboard](docs/screenshot.png)
-*(Replace `docs/screenshot.png` with a screenshot of the React UI at <http://localhost:5173>.)*
 
 ---
 
