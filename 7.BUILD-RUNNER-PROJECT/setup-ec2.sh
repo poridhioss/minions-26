@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/poridhioss/minions-26.git}"
-APP_DIR="$HOME/build-runner-project"
+APP_DIR="$HOME/7.BUILD-RUNNER-PROJECT"
 EC2_IP="$(curl -fsSL http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo localhost)"
 
 echo "==> Installing Docker"

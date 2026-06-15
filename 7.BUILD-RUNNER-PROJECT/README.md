@@ -214,7 +214,7 @@ this with a long-lived duplex connection:
 ## Project Structure
 
 ```
-build-runner-project/
+7.BUILD-RUNNER-PROJECT/
 ├── main.py                  # FastAPI app (HTTP + WebSocket)
 ├── worker.py                # Background job processor
 ├── docker_builder.py        # `docker build` wrapper with live log streaming
@@ -275,7 +275,7 @@ You need these installed on the host:
 
 ```bash
 git clone https://github.com/poridhioss/minions-26.git
-cd minions-26/build-runner-project
+cd minions-26/7.BUILD-RUNNER-PROJECT
 ```
 
 ### 2. Create `.env`
