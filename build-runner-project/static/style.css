@@ -1,0 +1,182 @@
+/* ---------- design tokens ---------- */
+:root {
+  --bg: #0f1115;
+  --card: #1a1d24;
+  --border: #2a2f3a;
+  --text: #e6e8eb;
+  --muted: #8a91a0;
+  --accent: #4f9eff;
+  --accent-hover: #6ab1ff;
+  --success: #34d399;
+  --failed: #f87171;
+  --running: #fbbf24;
+  --queued: #94a3b8;
+  --code-bg: #0a0c10;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+header {
+  padding: 2rem 1.5rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
+.subtitle { margin: 0; color: var(--muted); }
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+.card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------- form ---------- */
+form { display: grid; gap: 0.5rem; }
+label { font-size: 0.85rem; color: var(--muted); }
+input {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.7rem 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+button:hover { background: var(--accent-hover); }
+button:disabled { opacity: 0.5; cursor: wait; }
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.5rem;
+  margin: 0 0 0 auto;
+}
+button.ghost:hover { color: var(--text); }
+
+/* ---------- status badges ---------- */
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.badge-queued   { background: rgba(148,163,184,0.18); color: var(--queued); }
+.badge-running  { background: rgba(251,191,36,0.18); color: var(--running); }
+.badge-cloning,
+.badge-building,
+.badge-pushing,
+.badge-deploying { background: rgba(79,158,255,0.18); color: var(--accent); }
+.badge-success  { background: rgba(52,211,153,0.18); color: var(--success); }
+.badge-failed   { background: rgba(248,113,113,0.18); color: var(--failed); }
+
+/* ---------- active build card ---------- */
+.meta {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+.meta strong { color: var(--text); margin-right: 0.25rem; }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--code-bg);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+}
+.logs {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+.logs .line { display: block; }
+.logs .line.err { color: var(--failed); }
+.logs .line.ok  { color: var(--success); }
+
+/* ---------- history ---------- */
+.history { display: grid; gap: 0.5rem; }
+.history-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.history-item:hover { border-color: var(--accent); }
+.history-item .repo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-item .job {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.empty { color: var(--muted); text-align: center; padding: 1rem; }
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  padding: 1.5rem;
+  font-size: 0.8rem;
+}

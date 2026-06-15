@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build Runner — Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>🚀 Build Runner</h1>
+    <p class="subtitle">Paste a GitHub repo URL → get a Docker image on ghcr.io</p>
+  </header>
+
+  <main>
+    <!-- Build submission card -->
+    <section class="card">
+      <h2>New Build</h2>
+      <form id="build-form">
+        <label for="repo-url">GitHub repository URL</label>
+        <input
+          id="repo-url"
+          name="repo-url"
+          type="url"
+          placeholder="https://github.com/owner/repo"
+          required
+        />
+        <label for="ref-input">Branch / ref (optional)</label>
+        <input
+          id="ref-input"
+          name="ref-input"
+          type="text"
+          placeholder="main"
+          value="main"
+        />
+        <button type="submit" id="submit-btn">⚡ Trigger Build</button>
+      </form>
+    </section>
+
+    <!-- Active build card (only shown when a build is running) -->
+    <section class="card" id="active-card" hidden>
+      <h2>
+        Active Build
+        <span id="active-status" class="badge badge-running">running</span>
+      </h2>
+      <div class="meta">
+        <div><strong>Job:</strong> <code id="active-job"></code></div>
+        <div><strong>Repo:</strong> <code id="active-repo"></code></div>
+        <div><strong>Message:</strong> <span id="active-message"></span></div>
+      </div>
+      <h3>Live Logs</h3>
+      <pre id="log-box" class="logs"></pre>
+    </section>
+
+    <!-- Build history -->
+    <section class="card">
+      <h2>Recent Builds <button id="refresh-btn" class="ghost">↻ refresh</button></h2>
+      <div id="history-list" class="history">
+        <p class="empty">No builds yet — trigger one above ↑</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Build Runner • FastAPI + Redis + Docker</small>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

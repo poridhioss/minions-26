@@ -1,0 +1,7 @@
+Drop your dashboard screenshot here as `screenshot.png` and it will be
+embedded in README.md via:
+
+    ![Build Runner Dashboard](docs/screenshot.png)
+
+A good screenshot is the React UI at http://localhost:5173 showing the
+"Active Build" card with a live status badge and a streaming log box.
