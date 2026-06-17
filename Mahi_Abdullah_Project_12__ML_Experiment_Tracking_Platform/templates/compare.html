@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+
+{% block title %}Compare &middot; ML Tracker{% endblock %}
+
+{% block content %}
+<section>
+  <header class="mb-6">
+    <h1 class="text-2xl font-semibold text-gray-900">Compare experiments</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      Pick two runs to see how their parameters and metrics stack up.
+    </p>
+  </header>
+
+  <!-- ================================================================== -->
+  <!-- 1. Two dropdowns + Compare / Reset                                   -->
+  <!-- ================================================================== -->
+  <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="select-a" class="block text-xs font-medium text-gray-600 mb-1">
+          Experiment A
+        </label>
+        <select id="select-a"
+                class="w-full border border-gray-300 rounded-md text-sm py-1.5 px-2
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500
+                       focus:border-indigo-500">
+          <option value="">— select an experiment —</option>
+        </select>
+      </div>
+      <div>
+        <label for="select-b" class="block text-xs font-medium text-gray-600 mb-1">
+          Experiment B
+        </label>
+        <select id="select-b"
+                class="w-full border border-gray-300 rounded-md text-sm py-1.5 px-2
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500
+                       focus:border-indigo-500">
+          <option value="">— select an experiment —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-center gap-2">
+      <button id="compare-btn" type="button"
+              class="px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium
+                     rounded-md hover:bg-indigo-700 focus:outline-none
+                     focus:ring-2 focus:ring-indigo-500 disabled:opacity-50">
+        Compare
+      </button>
+      <button id="reset-btn" type="button"
+              class="px-4 py-1.5 bg-white border border-gray-300 text-sm
+                     font-medium text-gray-700 rounded-md hover:bg-gray-50">
+        Reset
+      </button>
+      <span id="compare-status" class="text-sm text-gray-500 ml-auto"
+            aria-live="polite"></span>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- Placeholder (no selection yet)                                       -->
+  <!-- ================================================================== -->
+  <div id="placeholder"
+       class="bg-white border border-gray-200 border-dashed rounded-lg p-10 text-center">
+    <h2 class="text-base font-medium text-gray-900">Nothing to compare yet</h2>
+    <p class="text-sm text-gray-500 mt-1">
+      Choose two experiments above and click <span class="font-medium">Compare</span>.
+    </p>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- Results (hidden until comparison succeeds)                            -->
+  <!-- ================================================================== -->
+  <div id="results" class="hidden space-y-6">
+
+    <!-- Headers for A & B ----------------------------------------------- -->
+    <div id="exp-headers" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <div class="text-xs font-medium uppercase tracking-wider text-indigo-600">Experiment A</div>
+        <h2 id="header-name-a" class="text-lg font-semibold text-gray-900 mt-1">—</h2>
+        <p id="header-meta-a" class="text-xs text-gray-500 mt-1">—</p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <div class="text-xs font-medium uppercase tracking-wider text-emerald-600">Experiment B</div>
+        <h2 id="header-name-b" class="text-lg font-semibold text-gray-900 mt-1">—</h2>
+        <p id="header-meta-b" class="text-xs text-gray-500 mt-1">—</p>
+      </div>
+    </div>
+
+    <!-- 2. Parameters table -------------------------------------------- -->
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">
+        Parameters
+      </h2>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="py-2 pr-3 w-1/3">Parameter</th>
+            <th class="py-2 pr-3 w-1/3">A</th>
+            <th class="py-2 pr-3 w-1/3">B</th>
+          </tr>
+        </thead>
+        <tbody id="params-body" class="divide-y divide-gray-100"></tbody>
+      </table>
+      <p id="params-empty" class="hidden text-sm text-gray-500 mt-2">
+        No parameters logged for either experiment.
+      </p>
+    </div>
+
+    <!-- 3. Final metrics bar chart -------------------------------------- -->
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">
+        Final Metrics
+      </h2>
+      <div class="relative h-72">
+        <canvas id="chart-metrics"></canvas>
+      </div>
+      <p id="chart-empty" class="hidden text-sm text-gray-500 mt-2">
+        No final metrics logged for either experiment.
+      </p>
+    </div>
+
+    <!-- 4. Final metrics table (with bolded winners) -------------------- -->
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">
+        Metrics comparison
+      </h2>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="py-2 pr-3 w-1/3">Metric</th>
+            <th class="py-2 pr-3 w-1/3">A</th>
+            <th class="py-2 pr-3 w-1/3">B</th>
+          </tr>
+        </thead>
+        <tbody id="metrics-body" class="divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Page logic                                                          -->
+<!-- ================================================================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---- DOM lookups -------------------------------------------------- //
+  const selectA      = document.getElementById("select-a");
+  const selectB      = document.getElementById("select-b");
+  const compareBtn   = document.getElementById("compare-btn");
+  const resetBtn     = document.getElementById("reset-btn");
+  const statusEl     = document.getElementById("compare-status");
+  const placeholder  = document.getElementById("placeholder");
+  const results      = document.getElementById("results");
+  const paramsBody   = document.getElementById("params-body");
+  const paramsEmpty  = document.getElementById("params-empty");
+  const metricsBody  = document.getElementById("metrics-body");
+  const chartEmpty   = document.getElementById("chart-empty");
+  const headerNameA  = document.getElementById("header-name-a");
+  const headerNameB  = document.getElementById("header-name-b");
+  const headerMetaA  = document.getElementById("header-meta-a");
+  const headerMetaB  = document.getElementById("header-meta-b");
+
+  // ---- Helpers ------------------------------------------------------ //
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function fmtValue(v) {
+    if (v === null || v === undefined || v === "") return "—";
+    if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(4).replace(/\.?0+$/, "");
+    return String(v);
+  }
+
+  // Higher-is-better for typical classifier metrics.
+  const HIGHER_IS_BETTER = new Set([
+    "accuracy", "acc", "f1", "f1_score", "precision", "recall", "auc", "roc_auc",
+  ]);
+  function betterIsHigher(name) {
+    const k = String(name || "").toLowerCase();
+    return HIGHER_IS_BETTER.has(k);
+  }
+
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg || "";
+    statusEl.className = "text-sm ml-auto " + (
+      kind === "ok"  ? "text-green-600" :
+      kind === "err" ? "text-red-600"   :
+                       "text-gray-500"
+    );
+  }
+
+  // ---- Populate dropdowns ------------------------------------------- //
+  async function loadExperiments() {
+    try {
+      const res = await fetch("/api/experiments", { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.length) {
+        selectA.innerHTML = '<option value="">— no experiments available —</option>';
+        selectB.innerHTML = '<option value="">— no experiments available —</option>';
+        return;
+      }
+      const opts = ['<option value="">— select an experiment —</option>']
+        .concat(data.map(e => {
+          const proj = e.project ? ` (${e.project})` : "";
+          return `<option value="${e.id}">${escapeHtml(e.name + proj)}</option>`;
+        }))
+        .join("");
+      selectA.innerHTML = opts;
+      selectB.innerHTML = opts;
+    } catch (err) {
+      console.error("Failed to load experiments:", err);
+      setStatus(`Failed to load experiments: ${err.message}`, "err");
+    }
+  }
+
+  // ---- Compare ------------------------------------------------------- //
+  let chart = null;
+
+  async function runCompare() {
+    const a = selectA.value;
+    const b = selectB.value;
+    if (!a || !b) {
+      setStatus("Pick two experiments first.", "err");
+      return;
+    }
+    if (a === b) {
+      setStatus("Pick two DIFFERENT experiments.", "err");
+      return;
+    }
+    setStatus("Loading…");
+    compareBtn.disabled = true;
+    try {
+      const res = await fetch(`/api/compare?ids=${encodeURIComponent(a)},${encodeURIComponent(b)}`,
+                              { headers: { "Accept": "application/json" } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!data.experiments || data.experiments.length < 2) {
+        throw new Error("Server returned fewer than two experiments.");
+      }
+      renderResults(data.experiments);
+      placeholder.classList.add("hidden");
+      results.classList.remove("hidden");
+      setStatus("Loaded ✓", "ok");
+      setTimeout(() => setStatus(""), 2000);
+    } catch (err) {
+      setStatus(err.message, "err");
+    } finally {
+      compareBtn.disabled = false;
+    }
+  }
+
+  // ---- Render: experiment headers ---------------------------------- //
+  function renderHeaders([a, b]) {
+    headerNameA.textContent = a.name;
+    headerNameB.textContent = b.name;
+    headerMetaA.textContent = [a.project || "no project", a.status || "—"].join(" · ");
+    headerMetaB.textContent = [b.project || "no project", b.status || "—"].join(" · ");
+  }
+
+  // ---- Render: parameters table ------------------------------------ //
+  function renderParams([a, b]) {
+    const pa = a.params || {};
+    const pb = b.params || {};
+    const keys = Array.from(new Set([...Object.keys(pa), ...Object.keys(pb)])).sort();
+
+    paramsBody.innerHTML = "";
+    if (keys.length === 0) {
+      paramsEmpty.classList.remove("hidden");
+      return;
+    }
+    paramsEmpty.classList.add("hidden");
+
+    for (const key of keys) {
+      const va = pa[key];
+      const vb = pb[key];
+      const same = JSON.stringify(va) === JSON.stringify(vb);
+      const rowCls = same ? "bg-gray-50" : "bg-yellow-50";
+      paramsBody.insertAdjacentHTML("beforeend", `
+        <tr class="${rowCls}">
+          <th scope="row" class="text-left font-medium text-gray-700 py-1.5 pr-3 align-top">
+            ${escapeHtml(key)}
+          </th>
+          <td class="py-1.5 pr-3 text-gray-900 font-mono text-xs break-all">
+            ${va === undefined ? '<span class="text-gray-400">—</span>' : escapeHtml(fmtValue(va))}
+          </td>
+          <td class="py-1.5 pr-3 text-gray-900 font-mono text-xs break-all">
+            ${vb === undefined ? '<span class="text-gray-400">—</span>' : escapeHtml(fmtValue(vb))}
+          </td>
+        </tr>
+      `);
+    }
+  }
+
+  // ---- Render: metrics bar chart + table --------------------------- //
+  function gatherMetricNames([a, b]) {
+    const ma = a.metrics || {};
+    const mb = b.metrics || {};
+    return Array.from(new Set([...Object.keys(ma), ...Object.keys(mb)])).sort();
+  }
+
+  function numericOrNull(v) {
+    return (typeof v === "number" && Number.isFinite(v)) ? v : null;
+  }
+
+  function renderChart([a, b]) {
+    const names = gatherMetricNames([a, b]);
+    const valuesA = names.map(n => numericOrNull((a.metrics || {})[n]));
+    const valuesB = names.map(n => numericOrNull((b.metrics || {})[n]));
+    const hasAny = valuesA.some(v => v !== null) || valuesB.some(v => v !== null);
+
+    if (!hasAny) {
+      chartEmpty.classList.remove("hidden");
+      if (chart) { chart.destroy(); chart = null; }
+      return;
+    }
+    chartEmpty.classList.add("hidden");
+
+    if (typeof Chart === "undefined") {
+      console.warn("Chart.js not loaded; skipping bar chart.");
+      return;
+    }
+    if (chart) chart.destroy();
+
+    chart = new Chart(document.getElementById("chart-metrics"), {
+      type: "bar",
+      data: {
+        labels: names,
+        datasets: [
+          { label: a.name, data: valuesA, backgroundColor: "rgba(79,70,229,0.7)", borderColor: "#4f46e5", borderWidth: 1 },
+          { label: b.name, data: valuesB, backgroundColor: "rgba(16,185,129,0.7)", borderColor: "#10b981", borderWidth: 1 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { position: "top" } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, grid: { color: "#f3f4f6" } },
+        },
+      },
+    });
+  }
+
+  function renderMetricsTable([a, b]) {
+    const names = gatherMetricNames([a, b]);
+    metricsBody.innerHTML = "";
+    if (names.length === 0) {
+      metricsBody.insertAdjacentHTML("beforeend", `
+        <tr><td colspan="3" class="py-3 text-sm text-gray-500">No metrics logged.</td></tr>
+      `);
+      return;
+    }
+    for (const name of names) {
+      const va = (a.metrics || {})[name];
+      const vb = (b.metrics || {})[name];
+      const na = numericOrNull(va);
+      const nb = numericOrNull(vb);
+      const upBetter = betterIsHigher(name);
+      let winner = null; // "a" | "b" | null
+      if (na !== null && nb !== null && na !== nb) {
+        if (upBetter ? na > nb : na < nb) winner = "a";
+        else winner = "b";
+      }
+      const cellA = va === undefined
+        ? '<span class="text-gray-400">—</span>'
+        : `<span class="${winner === "a" ? "font-semibold text-green-700" : ""}">${escapeHtml(fmtValue(va))}</span>`;
+      const cellB = vb === undefined
+        ? '<span class="text-gray-400">—</span>'
+        : `<span class="${winner === "b" ? "font-semibold text-green-700" : ""}">${escapeHtml(fmtValue(vb))}</span>`;
+      const hint = na !== null && nb !== null && na !== nb
+        ? (upBetter ? "↑ higher is better" : "↓ lower is better")
+        : "—";
+      metricsBody.insertAdjacentHTML("beforeend", `
+        <tr>
+          <th scope="row" class="text-left font-medium text-gray-700 py-1.5 pr-3 align-top">
+            ${escapeHtml(name)}
+            <div class="text-[10px] text-gray-400 font-normal">${hint}</div>
+          </th>
+          <td class="py-1.5 pr-3 text-gray-900 tabular-nums">${cellA}</td>
+          <td class="py-1.5 pr-3 text-gray-900 tabular-nums">${cellB}</td>
+        </tr>
+      `);
+    }
+  }
+
+  function renderResults(experiments) {
+    const [a, b] = experiments;
+    renderHeaders([a, b]);
+    renderParams([a, b]);
+    renderChart([a, b]);
+    renderMetricsTable([a, b]);
+  }
+
+  // ---- Reset --------------------------------------------------------- //
+  function reset() {
+    selectA.value = "";
+    selectB.value = "";
+    results.classList.add("hidden");
+    placeholder.classList.remove("hidden");
+    paramsEmpty.classList.add("hidden");
+    chartEmpty.classList.add("hidden");
+    if (chart) { chart.destroy(); chart = null; }
+    setStatus("");
+  }
+
+  // ---- Wire up ------------------------------------------------------- //
+  compareBtn.addEventListener("click", runCompare);
+  resetBtn.addEventListener("click", reset);
+  [selectA, selectB].forEach(sel =>
+    sel.addEventListener("change", () => { /* nothing; user must click Compare */ })
+  );
+
+  // ---- Deep-link: ?a=<id>&b=<id> auto-runs the comparison ------------ //
+  // Lets you share or screenshot a specific comparison, e.g. /compare?a=1&b=2.
+  async function maybeAutoCompareFromQuery() {
+    const sp = new URLSearchParams(window.location.search);
+    const a = sp.get("a");
+    const b = sp.get("b");
+    if (!a || !b) return;
+    // wait for the experiment list to load, then select + click
+    for (let i = 0; i < 50 && (selectA.options.length <= 1 || selectB.options.length <= 1); i++) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+    selectA.value = a;
+    selectB.value = b;
+    if (selectA.value === a && selectB.value === b) {
+      runCompare();
+    }
+  }
+
+  // Trigger when both picks are ready? Keep explicit button — simpler UX.
+  document.addEventListener("DOMContentLoaded", loadExperiments);
+  document.addEventListener("DOMContentLoaded", maybeAutoCompareFromQuery);
+})();
+</script>
+{% endblock %}

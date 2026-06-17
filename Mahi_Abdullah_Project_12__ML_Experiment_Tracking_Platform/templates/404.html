@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Not found &middot; ML Tracker{% endblock %}
+
+{% block content %}
+<section>
+  <a href="{{ url_for('index') }}"
+     class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-4">
+    <span aria-hidden="true">&larr;</span> Back to dashboard
+  </a>
+
+  <div class="bg-white border border-gray-200 rounded-lg p-10 text-center">
+    <div class="text-5xl mb-2">🧭</div>
+    <h1 class="text-xl font-semibold text-gray-900">Page not found</h1>
+    <p class="text-sm text-gray-500 mt-2">
+      We couldn't find anything at
+      <code class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 text-xs">{{ path }}</code>.
+    </p>
+    <a href="{{ url_for('index') }}"
+       class="inline-block mt-4 px-4 py-1.5 bg-indigo-600 text-white text-sm
+              font-medium rounded-md hover:bg-indigo-700">
+      Go to dashboard
+    </a>
+  </div>
+</section>
+{% endblock %}

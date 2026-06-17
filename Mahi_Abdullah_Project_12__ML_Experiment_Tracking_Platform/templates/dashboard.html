@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard &middot; ML Tracker{% endblock %}
+
+{% block content %}
+<section>
+  <header class="mb-6">
+    <h1 class="text-2xl font-semibold text-gray-900">Experiments</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      Browse and filter all logged runs. Click any row to open the detail view.
+    </p>
+  </header>
+
+  <!-- ----------------------------------------------------------------- -->
+  <!-- Filters                                                            -->
+  <!-- ----------------------------------------------------------------- -->
+  <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4
+              flex flex-col sm:flex-row sm:items-center gap-3">
+    <div class="flex-1">
+      <label for="search-input" class="sr-only">Search</label>
+      <input id="search-input"
+             type="search"
+             placeholder="Search by name, project, or tag…"
+             autocomplete="off"
+             class="w-full px-3 py-2 border border-gray-300 rounded-md
+                    text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500
+                    focus:border-indigo-500">
+    </div>
+
+    <div class="sm:w-56">
+      <label for="project-select" class="sr-only">Project</label>
+      <select id="project-select"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md
+                     text-sm bg-white focus:outline-none focus:ring-2
+                     focus:ring-indigo-500 focus:border-indigo-500">
+        <option value="">All projects</option>
+        <!-- Filled in by JS once the data loads. -->
+      </select>
+    </div>
+  </div>
+
+  <!-- ----------------------------------------------------------------- -->
+  <!-- Table                                                              -->
+  <!-- ----------------------------------------------------------------- -->
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <!-- Loading / error states -->
+    <div id="status-row" class="p-6 text-sm text-gray-500">Loading experiments…</div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden p-10 text-center">
+      <div class="text-4xl mb-2">🧪</div>
+      <h2 class="text-lg font-medium text-gray-900">No experiments yet</h2>
+      <p class="text-sm text-gray-500 mt-1">
+        Log your first run with the Python SDK:
+      </p>
+<pre class="mt-3 inline-block bg-gray-900 text-gray-100 text-xs text-left
+            rounded-md px-4 py-3 overflow-x-auto"><code>from tracker import start_run
+
+run = start_run(name="My First Run", project="Demo")
+run.log_params({"lr": 0.001})
+run.finish(metrics={"accuracy": 0.92})</code></pre>
+    </div>
+
+    <div id="table-wrap" class="hidden overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+          <tr>
+            <th scope="col" class="text-left font-medium px-4 py-3">Name</th>
+            <th scope="col" class="text-left font-medium px-4 py-3">Project</th>
+            <th scope="col" class="text-left font-medium px-4 py-3">Tags</th>
+            <th scope="col" class="text-right font-medium px-4 py-3">Accuracy</th>
+            <th scope="col" class="text-right font-medium px-4 py-3">Loss</th>
+            <th scope="col" class="text-left  font-medium px-4 py-3">Status</th>
+            <th scope="col" class="text-left  font-medium px-4 py-3">Date</th>
+          </tr>
+        </thead>
+        <tbody id="experiments-body" class="divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ----------------------------------------------------------------- -->
+<!-- Page logic                                                         -->
+<!-- ----------------------------------------------------------------- -->
+<script>
+(function () {
+  "use strict";
+
+  // ---- State -------------------------------------------------------- //
+  let allExperiments = [];   // Last server payload; used for client-side filtering.
+  const projectSet   = new Set();
+
+  // ---- DOM lookups -------------------------------------------------- //
+  const $body         = document.getElementById("experiments-body");
+  const $search       = document.getElementById("search-input");
+  const $project      = document.getElementById("project-select");
+  const $status       = document.getElementById("status-row");
+  const $empty        = document.getElementById("empty-state");
+  const $tableWrap    = document.getElementById("table-wrap");
+
+  // ---- Helpers ------------------------------------------------------ //
+  function escapeHtml(s) {
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  /**
+   * Render a numeric metric for the "Accuracy"/"Loss" columns. Falls back
+   * to a dash when the metric is absent. Supports a `multiplier` so the
+   * accuracy column can convert 0..1 → percentage when desired.
+   */
+  function fmtMetric(experiment, key, multiplier) {
+    const m = experiment && experiment.metrics;
+    if (!m || !(key in m) || m[key] == null) return "—";
+    const v = Number(m[key]);
+    if (!Number.isFinite(v)) return "—";
+    return multiplier ? (v * multiplier).toFixed(2) : v.toFixed(4);
+  }
+
+  function statusBadge(status) {
+    const s = (status || "unknown").toLowerCase();
+    let cls = "bg-gray-100 text-gray-700";
+    if (s === "completed") cls = "bg-green-100 text-green-800";
+    else if (s === "running") cls = "bg-yellow-100 text-yellow-800";
+    else if (s === "failed" || s === "crashed" || s === "killed") {
+      cls = "bg-red-100 text-red-800";
+    }
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded-full
+                   text-xs font-medium ${cls}">${escapeHtml(s)}</span>`;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    // SQLite CURRENT_TIMESTAMP looks like "YYYY-MM-DD HH:MM:SS"
+    const d = new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z"));
+    if (Number.isNaN(d.getTime())) return escapeHtml(iso);
+    return d.toLocaleString(undefined, {
+      year:   "numeric",
+      month:  "short",
+      day:    "2-digit",
+      hour:   "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function tagPills(tags) {
+    if (!tags) return "";
+    return tags
+      .split(",")
+      .map(t => t.trim())
+      .filter(Boolean)
+      .map(t =>
+        `<span class="inline-block bg-gray-100 text-gray-700 text-xs
+                       rounded-full px-2 py-0.5 mr-1 mb-1">${escapeHtml(t)}</span>`
+      )
+      .join("");
+  }
+
+  // ---- Rendering ---------------------------------------------------- //
+  function render(list) {
+    $body.innerHTML = "";
+
+    if (!list.length) {
+      $tableWrap.classList.add("hidden");
+      $empty.classList.remove("hidden");
+      return;
+    }
+
+    $empty.classList.add("hidden");
+    $tableWrap.classList.remove("hidden");
+
+    const frag = document.createDocumentFragment();
+    for (const exp of list) {
+      const tr = document.createElement("tr");
+      tr.className = "row-link";
+      tr.dataset.id = exp.id;
+      tr.setAttribute("tabindex", "0");
+      tr.setAttribute("role", "link");
+      tr.setAttribute(
+        "aria-label",
+        `Open experiment ${exp.name || ""} (id ${exp.id})`
+      );
+      tr.innerHTML = `
+        <td class="px-4 py-3 font-medium text-gray-900">${escapeHtml(exp.name)}</td>
+        <td class="px-4 py-3 text-gray-700">${escapeHtml(exp.project || "—")}</td>
+        <td class="px-4 py-3">${tagPills(exp.tags)}</td>
+        <td class="px-4 py-3 text-right tabular-nums text-gray-800">${fmtMetric(exp, "accuracy", 100)}</td>
+        <td class="px-4 py-3 text-right tabular-nums text-gray-800">${fmtMetric(exp, "loss")}</td>
+        <td class="px-4 py-3">${statusBadge(exp.status)}</td>
+        <td class="px-4 py-3 text-gray-500 whitespace-nowrap">${fmtDate(exp.created_at)}</td>
+      `;
+      // Whole row is clickable; keyboard users can press Enter when focused.
+      tr.addEventListener("click", () => { window.location.href = `/experiment/${exp.id}`; });
+      tr.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          window.location.href = `/experiment/${exp.id}`;
+        }
+      });
+      frag.appendChild(tr);
+    }
+    $body.appendChild(frag);
+  }
+
+  // ---- Client-side filtering ---------------------------------------- //
+  function applyFilters() {
+    const q = $search.value.trim().toLowerCase();
+    const p = $project.value;
+    const filtered = allExperiments.filter(exp => {
+      if (p && (exp.project || "") !== p) return false;
+      if (!q) return true;
+      const hay = [
+        exp.name    || "",
+        exp.project || "",
+        exp.tags    || "",
+      ].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+    render(filtered);
+  }
+
+  // ---- Project dropdown population ---------------------------------- //
+  function rebuildProjectOptions() {
+    const current = $project.value;
+    // Preserve "All projects" then sort the rest alphabetically.
+    const projects = Array.from(projectSet).sort((a, b) => a.localeCompare(b));
+    $project.innerHTML = `<option value="">All projects</option>` +
+      projects
+        .map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`)
+        .join("");
+    if (projects.includes(current)) $project.value = current;
+  }
+
+  // ---- Data load ---------------------------------------------------- //
+  async function load() {
+    $status.textContent = "Loading experiments…";
+    $status.classList.remove("hidden");
+    $empty.classList.add("hidden");
+    $tableWrap.classList.add("hidden");
+
+    try {
+      const res = await fetch("/api/experiments", { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      allExperiments = await res.json();
+
+      // Repopulate the project dropdown from the data.
+      projectSet.clear();
+      for (const exp of allExperiments) {
+        if (exp.project) projectSet.add(exp.project);
+      }
+      rebuildProjectOptions();
+
+      $status.classList.add("hidden");
+      applyFilters();   // Renders the empty state if the list is empty.
+    } catch (err) {
+      $status.textContent = `Failed to load experiments: ${err.message}`;
+    }
+  }
+
+  // ---- Wire up ------------------------------------------------------ //
+  $search.addEventListener("input", applyFilters);
+  $project.addEventListener("change", applyFilters);
+  document.addEventListener("DOMContentLoaded", load);
+})();
+</script>
+{% endblock %}
