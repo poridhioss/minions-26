@@ -1,6 +1,7 @@
 # ML Experiment Tracking Platform
 
-> **Author:** Poridhi Labs
+> **Author:** Mahi Abdullah
+> **Project-12** — ML Experiment Tracking Platform: A local ML experimentation system.
 > A simple, local-first way to log your ML training runs and see them in a clean dashboard. No cloud accounts, no Docker, no setup headaches — just Python, Flask, and a single SQLite file.
 
 ![Dashboard](docs/screenshot-dashboard.png)
@@ -10,6 +11,23 @@
 | Dashboard | Detail | Compare |
 | :-------: | :----: | :-----: |
 | ![Dashboard](docs/screenshot-dashboard.png) | ![Detail](docs/screenshot-detail.png) | ![Compare](docs/screenshot-compare.png) |
+
+---
+
+## Table of Contents
+
+1. [What is this?](#what-is-this)
+2. [Architecture (at a glance)](#architecture-at-a-glance)
+3. [Features](#features)
+4. [Tech stack](#tech-stack)
+5. [Project layout](#project-layout)
+6. [Setup](#setup)
+7. [SDK usage](#sdk-usage)
+8. [HTTP API](#http-api)
+9. [How it works (the short version)](#how-it-works-the-short-version)
+10. [Troubleshooting](#troubleshooting)
+11. [Roadmap](#roadmap)
+12. [License](#license)
 
 ---
 
