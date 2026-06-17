@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ML Tracker{% endblock %}</title>
+
+  <!-- Tailwind CSS via CDN. Sufficient for local experimentation. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Light, app-specific tweaks layered on top of Tailwind. -->
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    /* Subtle row hover for clickable tables. */
+    tr.row-link:hover { background-color: #f9fafb; cursor: pointer; }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+
+  <!-- ----------------------------------------------------------------- -->
+  <!-- Top navbar                                                         -->
+  <!-- ----------------------------------------------------------------- -->
+  <header class="bg-white border-b border-gray-200 shadow-sm">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <a href="{{ url_for('index') }}"
+         class="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-indigo-600">
+        <!-- Inline logo mark: simple geometric "M" -->
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-indigo-600 text-white font-bold">M</span>
+        <span>ML Tracker</span>
+      </a>
+
+      <div class="flex items-center gap-1 sm:gap-2 text-sm">
+        <a href="{{ url_for('index') }}"
+           class="px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 {% if request.endpoint == 'index' %}bg-gray-100 font-medium{% endif %}">
+          Dashboard
+        </a>
+        <a href="{{ url_for('compare_page') }}"
+           class="px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 {% if request.endpoint == 'compare_page' %}bg-gray-100 font-medium{% endif %}">
+          Compare
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ----------------------------------------------------------------- -->
+  <!-- Main content area                                                  -->
+  <!-- ----------------------------------------------------------------- -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-gray-200 bg-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 text-xs text-gray-500">
+      Local ML Experiment Tracking &middot; powered by Flask &amp; SQLite
+    </div>
+  </footer>
+</body>
+</html>

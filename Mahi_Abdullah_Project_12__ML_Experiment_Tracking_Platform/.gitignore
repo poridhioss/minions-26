@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Flask
+instance/
+*.db
+*.sqlite
+*.sqlite3
+experiments.db
+experiments.db-journal
+experiments.db-wal
+experiments.db-shm
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# OS
+.DS_Store
+desktop.ini
+
+# Logs
+*.log
+
+# Temporary / generated
+*.tmp
+*.bak
+
+# Local Flask runtime artifacts
+_flask.err
+_flask.out
+_run.bat
+
+# Puku (AI assistant) artifacts
+.puku/
