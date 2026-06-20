@@ -1,0 +1,25 @@
+# requirements.txt
+# Pinned to known-good versions for reproducible Docker builds.
+# Update deliberately and re-test before bumping.
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+python-multipart==0.0.20
+
+# Numerics & ML
+numpy==2.2.0
+pandas==2.2.3
+scikit-learn==1.6.1
+joblib==1.4.2
+
+# Experiment tracking
+mlflow==2.20.3
+
+# Test client (used by smoke_test.py; harmless in the image)
+httpx==0.28.1
+
+# Frontend (optional — only needed if you run `streamlit run app/frontend.py`)
+streamlit==1.39.0
+requests==2.32.3

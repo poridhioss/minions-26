@@ -1,0 +1,34 @@
+# .dockerignore
+# Anything that should NOT make it into the build context.
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Test outputs
+train_output.log
+smoke_test.py
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+
+# MLflow run metadata we don't need to bake in
+mlruns/*/meta.yaml

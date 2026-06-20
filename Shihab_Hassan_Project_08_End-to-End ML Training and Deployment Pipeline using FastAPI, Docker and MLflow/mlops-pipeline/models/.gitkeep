@@ -1,0 +1,2 @@
+# Keep the models/ folder in version control even when it's empty.
+# Trained artifacts (*.joblib) are git-ignored and produced by `python -m src.train`.
