@@ -2,7 +2,11 @@
 
 A beautiful, production-ready ML application that predicts house prices using advanced machine learning. Built with FastAPI backend and Next.js frontend, fully containerized and ready for AWS deployment.
 
-![Architecture](./docs/architecture.png)
+## 📸 Screenshots
+
+| Main UI | Prediction Result |
+| --- | --- |
+| ![Main UI](./image/screenshot-1.png) | ![Prediction Result](./image/screenshot-2.png) |
 
 ## ✨ Features
 
