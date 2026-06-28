@@ -1,0 +1,72 @@
+# Virtual Environments
+
+venv/
+env/
+.venv/
+.puku
+
+# Python Cache
+
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment Variables
+
+.env
+
+# VS Code
+
+.vscode/
+
+# PyCharm
+
+.idea/
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+# Logs
+
+*.log
+
+# Database
+
+*.db
+*.sqlite3
+
+# Build Files
+
+build/
+dist/
+*.egg-info/
+
+# Streamlit
+
+.streamlit/secrets.toml
+
+# Testing
+
+.pytest_cache/
+.coverage
+
+# OS Files
+
+.DS_Store
+Thumbs.db
+
+# Temporary Files
+
+temp/
+tmp/
+
+# Model Cache
+
+cache/
+models/
+
+# FAISS Indexes (Optional)
+
+*.index

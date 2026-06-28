@@ -1,0 +1,33 @@
+{
+  "programming": [
+    "python", "java", "javascript", "typescript", "c++", "c#", "go", "rust",
+    "ruby", "php", "swift", "kotlin", "scala", "r", "matlab", "sql", "nosql"
+  ],
+  "web": [
+    "html", "css", "react", "angular", "vue", "node.js", "express", "django",
+    "flask", "fastapi", "spring", "rails", "laravel", "next.js", "nuxt.js",
+    "redux", "rest api", "graphql", "websocket"
+  ],
+  "data_science": [
+    "machine learning", "deep learning", "nlp", "natural language processing",
+    "computer vision", "tensorflow", "pytorch", "keras", "scikit-learn",
+    "pandas", "numpy", "matplotlib", "seaborn", "data analysis",
+    "data visualization", "statistics", "etl", "data warehousing"
+  ],
+  "cloud_devops": [
+    "aws", "azure", "gcp", "docker", "kubernetes", "terraform", "ansible",
+    "jenkins", "git", "ci/cd", "linux", "bash", "nginx", "rabbitmq", "kafka"
+  ],
+  "databases": [
+    "mysql", "postgresql", "mongodb", "redis", "elasticsearch", "dynamodb",
+    "cassandra", "oracle", "sqlite", "snowflake", "bigquery"
+  ],
+  "mlops": [
+    "mlops", "model deployment", "model monitoring", "feature engineering",
+    "model training", "a/b testing", "experiment tracking", "mlflow", "kubeflow"
+  ],
+  "soft_skills": [
+    "leadership", "communication", "teamwork", "problem solving",
+    "analytical", "time management", "project management", "agile", "scrum"
+  ]
+}
