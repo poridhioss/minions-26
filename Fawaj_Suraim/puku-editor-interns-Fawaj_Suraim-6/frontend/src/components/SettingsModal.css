@@ -1,0 +1,50 @@
+/* SettingsModal — overlay opened from the activity bar's settings
+ * cog. The `.setting-row` / `.setting-info` / `.muted` rules used
+ * inside the body live in `App.css` (they're shared with the
+ * confirmation modal and other parts of the chrome).
+ *
+ * Layered under `@layer base` so the theme overrides in `App.css`
+ * (declared in `@layer themes`) win the cascade for light / hc-black
+ * variants without this file needing to be imported last.
+ */
+@layer base {
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: grid;
+    place-items: center;
+    z-index: 1000;
+  }
+  .settings-modal {
+    width: min(440px, 90vw);
+    background: #131a2c;
+    border: 1px solid #2a3344;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+  .settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #0d1426;
+    border-bottom: 1px solid #1a2236;
+    font-weight: 600;
+  }
+  .settings-header button {
+    background: transparent;
+    border: none;
+    color: #c9d1d9;
+    font-size: 14px;
+    padding: 0 4px;
+  }
+  .settings-header button:hover { color: #fff; background: transparent; }
+  .settings-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+}

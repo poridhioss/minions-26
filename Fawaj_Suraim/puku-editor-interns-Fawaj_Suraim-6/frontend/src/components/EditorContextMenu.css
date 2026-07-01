@@ -1,0 +1,84 @@
+/* EditorContextMenu — right-click menu anchored at the cursor.
+ *
+ * Shares `.ctx-menu` and `.ctx-item` with the Sidebar's own context
+ * menu (those base rules stay in `App.css`), then layers editor-only
+ * styling on top: a fixed-width tick column (`.ctx-tick`), a row
+ * layout with a flex-spanning label and `−` / `+` stepper buttons
+ * (`.ctx-row` / `.ctx-label` / `.ctx-btn` / `.ctx-val`), and an
+ * uppercase section header (`.ctx-section`). Separators are
+ * `.ctx-sep`.
+ *
+ * The `::before` pseudo-element below neutralises the 16px reserved
+ * slot that App.css adds to *Sidebar's* `.ctx-item` — the editor menu
+ * uses `.ctx-tick` for its own leading column, so we want the slot
+ * gone here.
+ *
+ * Layered under `@layer base` so the theme overrides in `App.css`
+ * (declared in `@layer themes`) win the cascade for light / hc-black
+ * variants without this file needing to be imported last.
+ */
+@layer base {
+  /* Disable Sidebar's 16px reserved-slot `::before` on editor items —
+     the editor menu supplies its own tick via `.ctx-tick`. */
+  .ctx-item::before { content: none; }
+
+  /* Pin a fixed-width tick column so every label (✓ check vs ●/○ radio)
+     starts at the same x-position. */
+  .ctx-tick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    flex: 0 0 14px;
+    text-align: center;
+    color: #c9d1d9;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .ctx-sep {
+    height: 1px;
+    margin: 4px 12px;
+    background: #1a2236;
+    flex: 0 0 auto;
+  }
+  .ctx-section {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    margin-top: 2px;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+    color: #7d8590;
+    flex: 0 0 auto;
+  }
+  .ctx-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    height: 28px;
+  }
+  .ctx-label { flex: 1; }
+  .ctx-val {
+    min-width: 22px;
+    text-align: center;
+    color: #c9d1d9;
+    font-variant-numeric: tabular-nums;
+  }
+  .ctx-btn {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    background: #131a2c;
+    border: 1px solid #1a2236;
+    color: #e6edf3;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    padding: 0;
+  }
+  .ctx-btn:hover { background: #1a2236; }
+}

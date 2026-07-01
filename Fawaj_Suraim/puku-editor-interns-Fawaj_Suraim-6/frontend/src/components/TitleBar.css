@@ -1,0 +1,46 @@
+/* TitleBar — top strip of the IDE. Hosts the brand label, the
+ * explorer/terminal mini-toggles (`.mini-btn` with optional `.active`),
+ * and the sandbox status pill.
+ *
+ * Layered under `@layer base` so the theme overrides in `App.css`
+ * (declared in `@layer themes`) win the cascade for light / hc-black
+ * variants without this file needing to be imported last.
+ */
+@layer base {
+  .titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    background: #0d1426;
+    border-bottom: 1px solid #1a2236;
+    font-size: 13px;
+  }
+  .brand { font-weight: 600; letter-spacing: 0.4px; }
+
+  /* Push the mini-toggles and status pill to the right of the brand. */
+  .titlebar-spacer { flex: 1; }
+  .titlebar-mini {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 8px;
+  }
+  .mini-btn {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+  .mini-btn:hover { background: #131a2c; color: #fff; }
+  .mini-btn.active { background: #1a2236; color: #fff; border-color: #2a3344; }
+  .titlebar-status { font-size: 11px; margin-left: 10px; }
+}

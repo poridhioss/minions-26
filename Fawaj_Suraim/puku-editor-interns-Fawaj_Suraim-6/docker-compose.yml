@@ -1,0 +1,109 @@
+# Replit — multi-container production stack.
+#
+# Brings up the orchestration backend and the Nginx-served frontend on
+# a shared user-defined network. The backend mounts the host's Docker
+# socket so it can spawn workspace sandboxes on demand.
+#
+# Usage (local build):
+#   make sandbox            # one-time: build backend/Dockerfile.sandbox
+#   docker compose build    # build the two service images
+#   docker compose up       # start the stack on http://localhost:8080
+#
+# Usage (pull from Docker Hub — no local build needed):
+#   make up-published       # or: DH_USE_HUB=true make up
+#   # override the namespace with DH_USER=someoneelse
+#
+# Prerequisites:
+#   - For local builds: the image named in
+#     `backend.services.backend.environment.SANDBOX_IMAGE` (default
+#     `replit-sandbox`) must exist locally. Run `make sandbox` first.
+#   - For hub pulls: `docker login` once, and either accept the default
+#     `DH_USER=suraim001` or set DH_USER to your own namespace.
+#   - On Linux the host's docker group gid must be passed to the backend
+#     so the in-container `node` user can read /var/run/docker.sock.
+#     The Makefile handles this automatically.
+
+services:
+  # -------------------------------------------------------------------
+  # Orchestration backend. Spins up workspace containers via dockerode.
+  # -------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: replit-backend
+    container_name: replit-backend
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      # Tell the orchestrator which image to spawn. Must exist on the
+      # host's docker daemon — `make sandbox` builds it.
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-replit-sandbox}
+      # Run the sandbox's bash as this unprivileged user (must match
+      # the user baked into backend/Dockerfile.sandbox).
+      SANDBOX_USER: ${SANDBOX_USER:-developer}
+      # Reap containers when the last websocket drops.
+      AUTO_CLEANUP: "true"
+    volumes:
+      # The host's docker daemon. Required so dockerode can create
+      # sandbox containers. Read+write is needed for exec/attach
+      # but not for the daemon's control plane (which is unix-socket
+      # only).
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Drop privileges inside the container. The `node` user baked
+    # into node:20-alpine is uid/gid 1000; for socket access we add
+    # the host's docker group as a supplemental group. The Makefile
+    # sets DOCKER_GID automatically; override here for exotic hosts
+    # where the socket isn't group `docker` (e.g. rootless docker,
+    # custom socket paths).
+    user: "1000:1000"
+    group_add:
+      - ${DOCKER_GID:-1002}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - replit-net
+
+  # -------------------------------------------------------------------
+  # Frontend — Nginx serves the Vite bundle and reverse-proxies API +
+  # Socket.IO traffic to the backend service.
+  # -------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: /api
+        VITE_SOCKET_URL:
+    image: replit-frontend
+    container_name: replit-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Rendered into nginx.conf by docker-entrypoint.sh. Uses the
+      # compose service name so the frontend reaches the backend
+      # over the user-defined network.
+      BACKEND_URL: http://backend:3001
+    ports:
+      # Host : container. Change the host side if 8080 is taken.
+      - "${FRONTEND_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - replit-net
+
+networks:
+  replit-net:
+    driver: bridge
+    name: replit-net

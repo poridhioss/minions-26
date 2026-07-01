@@ -1,0 +1,63 @@
+# Root .dockerignore — applied to every service's build context.
+# Each Dockerfile also pulls a more targeted file set; this is the
+# safety net that keeps secrets and large build artifacts out of
+# any image.
+
+# --- VCS / editor / OS noise ------------------------------------------
+.git
+.gitignore
+.gitattributes
+.github
+.gitlab-ci.yml
+.hg
+.svn
+
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+
+# --- Logs / coverage / runtime caches ---------------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage
+.nyc_output
+.cache
+.turbo
+.parcel-cache
+
+# --- Workspace + project-local artifacts -------------------------------
+# Replit-specific state that the host manages.
+.replit
+.replit-state
+.replit-cache
+
+# Frontend build outputs (rebuilt inside the image).
+frontend/dist
+frontend/node_modules
+frontend/.vite
+
+# Backend deps (re-installed inside the image).
+backend/node_modules
+backend/npm-debug.log
+
+# Compose / docker state.
+docker-compose.override.yml
+.dockerignore
+Dockerfile
+Dockerfile.*
+Makefile
+README.md
+
+# Misc doc / example noise.
+docs
+*.md.bak

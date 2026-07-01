@@ -1,0 +1,57 @@
+# Sandbox image for ephemeral dev environments.
+# Build with:  docker build -f backend/Dockerfile.sandbox -t replit-sandbox backend/
+#
+# Orchestration contract (see backend/src/services/docker.js):
+#   - Container is launched with a long-lived `/bin/bash` as PID 1.
+#   - All `docker exec` PTYs and file ops run as the unprivileged
+#     `developer` user (uid is assigned by useradd at build time, not
+#     pinned — see below), never as root.
+#   - The default working directory is /workspace, owned by `developer`.
+#   - Resource limits (CPU + RAM) are set by the orchestrator at
+#     `docker createContainer` time via HostConfig, not in this file.
+FROM node:20-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm-256color
+
+# Toolchain layer: Node is already in the base, we add the rest.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bash ca-certificates curl git nano vim python3 python3-pip \
+      sudo coreutils findutils procps \
+ && rm -rf /var/lib/apt/lists/*
+
+# Non-root user. The orchestrator runs every exec/PTY as this user,
+# so a stray `rm -rf ~` can't damage the host. We deliberately do NOT
+# pin UID/GID here: depending on the base image, `1000` may already be
+# taken (e.g. recent `node:20-slim` ships a `node` group with GID 1000),
+# which makes `--gid 1000` fail with "GID already exists". Letting
+# useradd pick the next free id keeps the build portable. The assigned
+# ids are dumped to `/etc/profile.d/developer-ids.sh` so the host
+# orchestrator (or anything shelling into the container) can read them
+# back via `id -u developer` / `getent group developer` — which is
+# what `services/docker.js` and `services/sandbox-fs.js` already do,
+# so no image-time `ENV` is needed.
+RUN groupadd developer \
+ && useradd  --gid developer --create-home --shell /bin/bash developer \
+ && echo "developer ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/developer \
+ && chmod 0440 /etc/sudoers.d/developer
+RUN { \
+     echo '#!/bin/sh'; \
+     echo "export DEV_UID=$(id -u developer)"; \
+     echo "export DEV_GID=$(getent group developer | cut -d: -f3)"; \
+   } > /etc/profile.d/developer-ids.sh \
+ && chmod 0644 /etc/profile.d/developer-ids.sh
+
+# Workspace dir, owned by `developer` so files written through
+# `services/sandbox-fs.js` (which runs as the user) don't trip
+# permission errors.
+RUN mkdir -p /workspace \
+ && chown -R developer:developer /workspace
+
+WORKDIR /workspace
+USER developer
+
+# Keep the container alive by default; the orchestrator attaches
+# to a bash -i exec on demand.
+CMD ["sleep", "infinity"]

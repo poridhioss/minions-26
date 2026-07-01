@@ -1,0 +1,39 @@
+# Replit — published-images override.
+#
+# Drop-in companion to docker-compose.yml. Drops the `build:` blocks and
+# points both services at the public Docker Hub images instead, so a fresh
+# host with no source tree can run the stack by:
+#
+#   docker login
+#   DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) \
+#     docker compose \
+#       -f docker-compose.yml \
+#       -f docker-compose.published.yml \
+#       pull
+#   DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) \
+#     docker compose \
+#       -f docker-compose.yml \
+#       -f docker-compose.published.yml \
+#       up -d
+#
+# `make up-published` (or just `make up` when DH_USE_HUB=true) does the
+# compose-args wiring for you.
+#
+# Override the namespace with DH_USER=someoneelse; defaults to `suraim001`,
+# the account that published these images.
+
+services:
+  backend:
+    # `!reset null` is the documented Compose extension tag for removing
+    # a key from the merged config. That drops the `build:` block from
+    # docker-compose.yml so Compose uses `image:` to pull from the hub.
+    build: !reset null
+    image: ${DH_USER:-suraim001}/replit-backend:latest
+    # Pulled images need to know where to find the sandbox image too —
+    # bake the same DH_USER into the SANDBOX_IMAGE env var.
+    environment:
+      SANDBOX_IMAGE: ${DH_USER:-suraim001}/replit-sandbox:latest
+
+  frontend:
+    build: !reset null
+    image: ${DH_USER:-suraim001}/replit-frontend:latest
