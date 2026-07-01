@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" font-family="Inter, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .box     { fill:#ffffff; stroke:#cbd5e1; stroke-width:1.5; }
+      .accent  { fill:#0b5fff; }
+      .t       { fill:#0f172a; font-size:14px; font-weight:600; }
+      .s       { fill:#475569; font-size:12px; }
+      .stepNum { fill:#fff; font-size:14px; font-weight:700; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="720" fill="url(#bg2)"/>
+  <text x="500" y="40" text-anchor="middle" fill="#0f172a" font-size="22" font-weight="700">
+    End-to-End Screening Workflow
+  </text>
+  <text x="500" y="62" text-anchor="middle" fill="#475569" font-size="13">
+    From "Paste JD" to ranked table in a single /rank call
+  </text>
+
+  <!-- Step nodes -->
+  <g>
+    <!-- 1. JD -->
+    <g transform="translate(60,110)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" class="accent"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">1</text>
+      <text x="46" y="30" class="t">Paste Job Description</text>
+      <text x="46" y="50" class="s">POST /upload-jd</text>
+    </g>
+
+    <!-- 2. Upload resumes -->
+    <g transform="translate(60,210)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" class="accent"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">2</text>
+      <text x="46" y="30" class="t">Upload PDF Resumes</text>
+      <text x="46" y="50" class="s">POST /upload-resumes</text>
+    </g>
+
+    <!-- 3. Parse PDFs -->
+    <g transform="translate(300,210)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" fill="#7c3aed"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">3</text>
+      <text x="46" y="30" class="t">pdf_parser.parse_resume</text>
+      <text x="46" y="50" class="s">text + candidate name</text>
+    </g>
+
+    <!-- 4. Run screening -->
+    <g transform="translate(60,320)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" class="accent"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">4</text>
+      <text x="46" y="30" class="t">Click "Run Screening"</text>
+      <text x="46" y="50" class="s">POST /rank</text>
+    </g>
+
+    <!-- 5. Embed -->
+    <g transform="translate(300,320)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" fill="#facc15"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum" fill="#000">5</text>
+      <text x="46" y="30" class="t">embedder.embed(_batch)</text>
+      <text x="46" y="50" class="s">384-dim normalized vectors</text>
+    </g>
+
+    <!-- 6. FAISS -->
+    <g transform="translate(540,320)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" fill="#0467df"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">6</text>
+      <text x="46" y="30" class="t">faiss_index.add + search</text>
+      <text x="46" y="50" class="s">cosine similarity scores</text>
+    </g>
+
+    <!-- 7. Skills -->
+    <g transform="translate(300,430)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" fill="#10b981"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">7</text>
+      <text x="46" y="30" class="t">skill_extractor.compare</text>
+      <text x="46" y="50" class="s">matched / missing / match_ratio</text>
+    </g>
+
+    <!-- 8. Ranker -->
+    <g transform="translate(540,430)">
+      <rect class="box" width="200" height="70" rx="12"/>
+      <circle cx="22" cy="35" r="14" fill="#f43f5e"/>
+      <text x="22" y="40" text-anchor="middle" class="stepNum">8</text>
+      <text x="46" y="30" class="t">ranker.rank_candidates</text>
+      <text x="46" y="50" class="s">0.7·sim + 0.3·skill</text>
+    </g>
+
+    <!-- 9. UI render -->
+    <g transform="translate(780,375)">
+      <rect class="box" width="180" height="80" rx="12"/>
+      <circle cx="22" cy="40" r="14" fill="#ff4b4b"/>
+      <text x="22" y="45" text-anchor="middle" class="stepNum">9</text>
+      <text x="46" y="35" class="t">Streamlit renders</text>
+      <text x="46" y="55" class="s">table + per-candidate</text>
+      <text x="46" y="70" class="s">expanders</text>
+    </g>
+  </g>
+
+  <!-- Connectors -->
+  <g stroke="#475569" stroke-width="2" fill="none">
+    <path d="M160,180 L160,210" marker-end="url(#ar2)"/>     <!-- 1 -> 2 -->
+    <path d="M260,245 L300,245" marker-end="url(#ar2)"/>     <!-- 2 -> 3 -->
+    <path d="M160,280 L160,320" marker-end="url(#ar2)"/>     <!-- 3 -> 4 -->
+    <path d="M260,355 L300,355" marker-end="url(#ar2)"/>     <!-- 4 -> 5 -->
+    <path d="M500,355 L540,355" marker-end="url(#ar2)"/>     <!-- 5 -> 6 -->
+    <path d="M640,390 L640,430 L500,430 L500,465" marker-end="url(#ar2)"/> <!-- 6 -> 7 -->
+    <path d="M500,465 L540,465" marker-end="url(#ar2)"/>     <!-- 7 -> 8 -->
+    <path d="M740,465 L780,415" marker-end="url(#ar2)"/>     <!-- 8 -> 9 -->
+  </g>
+
+  <!-- Footer note -->
+  <g transform="translate(60,560)">
+    <rect class="box" width="900" height="120" rx="12"/>
+    <text x="20" y="32" class="t">Why this design works</text>
+    <text x="20" y="60" class="s">• Two independent processes (UI on 8501, API on 8000) — restart one without touching the other.</text>
+    <text x="20" y="82" class="s">• Each ML stage is its own module → swap embedder or swap index without rewriting the API.</text>
+    <text x="20" y="104" class="s">• Composite score = semantic (FAISS) + symbolic (skills) — robust to paraphrasing AND to keyword stuffing.</text>
+  </g>
+</svg>

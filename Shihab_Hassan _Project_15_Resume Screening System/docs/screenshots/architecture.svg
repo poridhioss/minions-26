@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="Inter, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .card  { fill:#0b1220; stroke:#334155; stroke-width:1.5; rx:14; }
+      .title { fill:#e2e8f0; font-size:18px; font-weight:600; }
+      .sub   { fill:#94a3b8; font-size:12px; }
+      .pill  { fill:#1e293b; stroke:#475569; }
+      .pillT { fill:#cbd5e1; font-size:11px; }
+      .conn  { stroke:#94a3b8; stroke-width:2; fill:none; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="620" fill="url(#bg)"/>
+  <text x="500" y="40" text-anchor="middle" fill="#f8fafc" font-size="22" font-weight="700">
+    AI Resume Screening — System Architecture
+  </text>
+  <text x="500" y="62" text-anchor="middle" fill="#94a3b8" font-size="13">
+    Streamlit UI  ⇄  FastAPI  ⇄  ML pipeline  (embeddings + FAISS + skills)
+  </text>
+
+  <!-- Recruiter -->
+  <g transform="translate(60,110)">
+    <rect class="card" width="160" height="80"/>
+    <circle cx="32" cy="40" r="18" fill="#fde68a"/>
+    <path d="M14 60 q18 -14 36 0" stroke="#92400e" stroke-width="2" fill="none"/>
+    <text x="62" y="36" class="title">Recruiter</text>
+    <text x="62" y="56" class="sub">Pastes JD + uploads PDFs</text>
+  </g>
+
+  <!-- Arrow from Recruiter to Streamlit -->
+  <path class="conn" d="M220,150 L300,150" marker-end="url(#arrow)"/>
+
+  <!-- Streamlit UI -->
+  <g transform="translate(300,110)">
+    <rect class="card" width="180" height="80"/>
+    <rect x="20" y="22" width="36" height="36" rx="6" fill="#ff4b4b"/>
+    <text x="38" y="48" text-anchor="middle" fill="#fff" font-size="22" font-weight="700">S</text>
+    <text x="70" y="36" class="title">Streamlit UI</text>
+    <text x="70" y="56" class="sub">frontend/app.py  · port 8501</text>
+  </g>
+
+  <!-- Arrow to FastAPI -->
+  <path class="conn" d="M480,150 L560,150" marker-end="url(#arrow)"/>
+  <text x="520" y="142" text-anchor="middle" class="sub">HTTP / JSON</text>
+
+  <!-- FastAPI -->
+  <g transform="translate(560,110)">
+    <rect class="card" width="180" height="80"/>
+    <rect x="20" y="22" width="36" height="36" rx="6" fill="#009688"/>
+    <text x="38" y="48" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">F</text>
+    <text x="70" y="36" class="title">FastAPI</text>
+    <text x="70" y="56" class="sub">backend/main.py · port 8000</text>
+  </g>
+
+  <!-- Arrow to pipeline -->
+  <path class="conn" d="M650,200 L650,250" marker-end="url(#arrow)"/>
+
+  <!-- ML pipeline cards -->
+  <g transform="translate(60,260)">
+    <rect class="card" width="880" height="270"/>
+    <text x="20" y="28" class="title">ML Pipeline</text>
+    <text x="20" y="46" class="sub">Five composable stages, each with its own module</text>
+
+    <!-- pdf_parser -->
+    <g transform="translate(20,70)">
+      <rect width="150" height="100" rx="10" fill="#0b1220" stroke="#475569"/>
+      <rect x="10" y="12" width="28" height="28" rx="4" fill="#7c3aed"/>
+      <text x="24" y="33" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">PDF</text>
+      <text x="48" y="30" class="title">pdf_parser</text>
+      <text x="10" y="60" class="sub">PyMuPDF text + name</text>
+      <text x="10" y="78" class="sub">heuristic</text>
+    </g>
+
+    <!-- embedder -->
+    <g transform="translate(190,70)">
+      <rect width="170" height="100" rx="10" fill="#0b1220" stroke="#475569"/>
+      <rect x="10" y="12" width="28" height="28" rx="4" fill="#facc15"/>
+      <text x="24" y="33" text-anchor="middle" fill="#000" font-size="14" font-weight="700">E</text>
+      <text x="48" y="30" class="title">embedder</text>
+      <text x="10" y="60" class="sub">all-MiniLM-L6-v2</text>
+      <text x="10" y="78" class="sub">384-dim · normalized</text>
+    </g>
+
+    <!-- faiss_index -->
+    <g transform="translate(380,70)">
+      <rect width="170" height="100" rx="10" fill="#0b1220" stroke="#475569"/>
+      <rect x="10" y="12" width="28" height="28" rx="4" fill="#0467df"/>
+      <text x="24" y="33" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">F</text>
+      <text x="48" y="30" class="title">faiss_index</text>
+      <text x="10" y="60" class="sub">IndexFlatIP</text>
+      <text x="10" y="78" class="sub">cosine via inner product</text>
+    </g>
+
+    <!-- skill_extractor -->
+    <g transform="translate(570,70)">
+      <rect width="170" height="100" rx="10" fill="#0b1220" stroke="#475569"/>
+      <rect x="10" y="12" width="28" height="28" rx="4" fill="#10b981"/>
+      <text x="24" y="33" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">SK</text>
+      <text x="48" y="30" class="title">skill_extractor</text>
+      <text x="10" y="60" class="sub">word-boundary regex</text>
+      <text x="10" y="78" class="sub">matched / missing / extra</text>
+    </g>
+
+    <!-- ranker -->
+    <g transform="translate(760,70)">
+      <rect width="100" height="100" rx="10" fill="#0b1220" stroke="#475569"/>
+      <rect x="10" y="12" width="28" height="28" rx="4" fill="#f43f5e"/>
+      <text x="24" y="33" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">R</text>
+      <text x="48" y="30" class="title">ranker</text>
+      <text x="10" y="60" class="sub">0.7·sim</text>
+      <text x="10" y="78" class="sub">+0.3·skill</text>
+    </g>
+
+    <!-- data -->
+    <g transform="translate(20,200)">
+      <rect class="pill" width="280" height="50" rx="8"/>
+      <text x="20" y="32" class="pillT">📁 data/skills.json  (categorized skill DB)</text>
+    </g>
+    <g transform="translate(320,200)">
+      <rect class="pill" width="280" height="50" rx="8"/>
+      <text x="20" y="32" class="pillT">📂 uploads/resumes/  (persisted PDFs)</text>
+    </g>
+    <g transform="translate(620,200)">
+      <rect class="pill" width="300" height="50" rx="8"/>
+      <text x="20" y="32" class="pillT">🧠 in-memory session state  (STATE)</text>
+    </g>
+  </g>
+
+  <!-- Return arrow to UI -->
+  <path class="conn" d="M650,540 L650,560 L300,560 L300,200" marker-end="url(#arrow)"/>
+  <text x="475" y="552" text-anchor="middle" class="sub">Ranked JSON response</text>
+</svg>
