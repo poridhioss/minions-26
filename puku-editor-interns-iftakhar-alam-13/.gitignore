@@ -1,10 +1,7 @@
 venv/
 __pycache__/
 *.pem
-*.key
-*.pkl
 model.pkl
-columns.pkl
 .puku/
 node_modules/
 .DS_Store
