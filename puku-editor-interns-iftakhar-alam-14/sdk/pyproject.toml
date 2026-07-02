@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mltracker"
+version = "0.1.0"
+description = "Python SDK for the ML Experiment Tracking Platform."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ML Tracker Team" }]
+keywords = ["ml", "mlops", "experiment-tracking", "mlflow"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "httpx>=0.27,<1.0",
+    "pydantic>=2.6,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+    "respx>=0.21",          # httpx mocking
+]
+
+[project.urls]
+Homepage = "https://github.com/iftakhar/ml-tracker"
+Documentation = "https://github.com/iftakhar/ml-tracker#readme"
+Issues = "https://github.com/iftakhar/ml-tracker/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mltracker*"]
+exclude = ["tests*", "examples*"]
+
+[tool.setuptools.package-data]
+mltracker = ["py.typed"]

@@ -1,0 +1,51 @@
+# ─── .dockerignore for the BACKEND build context (./backend) ────────────
+# This is the .dockerignore the backend Dockerfile reads. The root
+# .dockerignore covers compose-level COPY mounts; this one trims the
+# backend's own build context.
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.so
+
+# Local venvs
+.venv/
+venv/
+env/
+
+# Tests (we don't need them inside the runtime image; the conftest
+# is dev-only and the test DB is sqlite-on-disk)
+tests/
+tests/_tmp/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# MLflow local runs
+mlruns/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Docker self-references
+Dockerfile
+.dockerignore
+
+# Local artifacts that should not be baked in
+.env
+.env.local
+.env.*.local
+*.pem
+*.key

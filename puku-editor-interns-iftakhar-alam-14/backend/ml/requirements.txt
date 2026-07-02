@@ -1,0 +1,10 @@
+# Extra dependencies for the ML training & inference scripts
+# (kept separate from backend/requirements.txt so the API image stays slim)
+scikit-learn==1.5.2
+pandas==2.2.3
+numpy==1.26.4
+joblib==1.4.2
+mlflow==2.20.3
+boto3==1.43.22
+httpx==0.28.1
+python-dotenv==1.2.2

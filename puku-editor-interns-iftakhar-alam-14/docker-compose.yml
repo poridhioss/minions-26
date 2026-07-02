@@ -1,0 +1,195 @@
+# ─────────────────────────────────────────────────────────────────────────
+# docker-compose.yml
+#
+# One-command deployment of the full ML Tracker stack:
+#
+#   docker compose up -d
+#
+# Brings up:
+#   • postgres   — primary database (experiments, runs)
+#   • backend    — FastAPI app (uvicorn) on :8000
+#   • mlflow     — tracking server on :5000
+#   • minio      — S3-compatible artifact store on :9000 / console :9001
+#   • nginx      — reverse proxy + static frontend on :80
+#
+# All services share a private `mlnet` network so they can reach each
+# other by SERVICE NAME (e.g. `postgres`, `mlflow`).
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mltracker-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-mluser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlpassword}
+      POSTGRES_DB:       ${POSTGRES_DB:-mltracker}
+      # Speeds up commit latency; fine for dev. For prod tune
+      # shared_buffers / work_mem in a custom config file.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Expose 5432 to the host so you can connect with psql / DBeaver.
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mluser} -d ${POSTGRES_DB:-mltracker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - mlnet
+
+  # ─── Backend (FastAPI / uvicorn) ───────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mltracker-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    environment:
+      # Pass through everything from .env so the backend can read it.
+      DATABASE_URL:     ${DATABASE_URL}
+      SECRET_KEY:       ${SECRET_KEY}
+      API_KEYS:         ${API_KEYS}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT:-./mlruns}
+      MINIO_ENDPOINT:   ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET:     ${MINIO_BUCKET}
+      MINIO_SECURE:     ${MINIO_SECURE}
+      APP_NAME:         ${APP_NAME}
+      APP_VERSION:      ${APP_VERSION}
+      DEBUG:            ${DEBUG}
+      CORS_ORIGINS:     ${CORS_ORIGINS}
+    # Backend listens on 8000 INSIDE the container; nginx reaches it
+    # via the private network on `backend:8000`. We don't expose 8000
+    # to the host in prod — nginx is the only public entrypoint.
+    expose:
+      - "8000"
+    volumes:
+      # Persist any local-file outputs (e.g. test artifact dumps) the
+      # backend writes during dev. In prod this isn't strictly needed.
+      - ./backend/ml:/app/ml
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - mlnet
+
+  # ─── MLflow tracking server ───────────────────────────────────────────
+  # We use a small custom image that adds psycopg2-binary + boto3 on top
+  # of the official `mlflow` image — the upstream image doesn't ship
+  # psycopg2, which we need for the Postgres backend store.
+  mlflow:
+    build:
+      context: ./mlflow-image
+      dockerfile: Dockerfile
+    container_name: mltracker-mlflow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      # MLflow's env vars for the S3 backend. The minio client uses these
+      # to talk to MinIO with the right credentials + endpoint.
+      AWS_ACCESS_KEY_ID:     ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri sqlite:////mlflow/mlflow.db
+        --default-artifact-root s3://${MINIO_BUCKET:-artifacts}/
+    volumes:
+      # Persist the SQLite backend store across container restarts.
+      # (Using SQLite here sidesteps a known mlflow 2.22 + Postgres FK
+      # initialization ordering bug.)
+      - mlflow_data:/mlflow
+    ports:
+      - "5000:5000"
+    healthcheck:
+      # The MLflow UI's `/health` is a simple liveness probe.
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - mlnet
+
+  # ─── MinIO (S3-compatible object storage) ─────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: mltracker-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER:     ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "-I", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - mlnet
+
+  # ─── Nginx reverse proxy + static frontend ────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mltracker-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Only nginx is exposed to the host (port 80). All other services
+      # are reachable only via the private network.
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Mount the frontend build dir read-only. The build is produced
+      # separately (e.g. `npm run build` in ./frontend). If the dir
+      # doesn't exist yet, nginx still serves the default welcome page.
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    networks:
+      - mlnet
+
+# ─── Named volumes (persist data across container restarts) ─────────────
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+  mlflow_data:
+    driver: local
+
+# ─── Private network ─────────────────────────────────────────────────────
+# All services join `mlnet`. They can address each other by service name
+# (e.g. `postgres`, `mlflow`, `minio`).
+networks:
+  mlnet:
+    driver: bridge

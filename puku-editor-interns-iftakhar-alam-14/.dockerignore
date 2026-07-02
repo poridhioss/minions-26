@@ -1,0 +1,56 @@
+# ─── Python / project artifacts ─────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.so
+
+# Virtualenvs (we install fresh in the image)
+.venv/
+venv/
+env/
+
+# Tests
+backend/tests/_tmp/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ─── MLflow local runs (re-created inside the container) ───────────────
+mlruns/
+backend/mlruns/
+
+# ─── IDE / editor cruft ─────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# ─── Frontend build artifacts (we serve via nginx, not from the image) ─
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ─── Git / docs / sample data (not needed at runtime) ───────────────────
+.git/
+.gitignore
+.github/
+README.md
+LICENSE
+*.md
+!backend/README*.md
+
+# ─── Env / secrets — never bake them into the image ─────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ─── Docker self-references (avoid recursive COPY) ─────────────────────
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
