@@ -13,8 +13,6 @@ __pycache__/
 venv/
 env/
 ENV/
-.puku/
-*.db
 
 # Distribution / packaging
 build/
@@ -39,6 +37,17 @@ models/*.json
 
 # Logs
 *.log
+api.log
+api.err
+
+# ---------- Scripts (dev only) and runtime logs ----------
+fix_readme*.py
+_print_*.py
+final_check.py
+inspect_tree.ps1
+temp_*.py
+tmp_*.py
+README_SCREENSHOTS.md
 
 # ---------- IDEs / editors ----------
 .idea/

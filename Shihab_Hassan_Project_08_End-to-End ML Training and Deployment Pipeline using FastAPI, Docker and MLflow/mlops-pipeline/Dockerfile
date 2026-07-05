@@ -34,7 +34,6 @@ COPY app/      ./app/
 COPY src/      ./src/
 COPY data/     ./data/
 COPY models/   ./models/
-COPY mlruns/   ./mlruns/
 
 # ----- 7. Health check (optional but nice) ------------------------------------
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
@@ -44,5 +43,10 @@ sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).
 # ----- 8. Expose + launch -----------------------------------------------------
 EXPOSE 8000
 
-# uvicorn with 1 worker is fine for a demo; bump --workers for real traffic.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Train first so models/best_model.joblib is pickled with the EXACT
+# scikit-learn version baked into this image. Skipping this and shipping
+# a pre-built .joblib from a different sklearn version causes
+# `AttributeError: 'LogisticRegression' object has no attribute 'multi_class'`
+# (or similar) when the API tries to call predict_proba.
+# Set SKIP_TRAIN=1 to skip (e.g. when you mount your own models/ volume).
+CMD ["sh", "-c", "if [ \"$SKIP_TRAIN\" != \"1\" ]; then python -m src.train; else echo '[skip] SKIP_TRAIN=1, using bundled models'; fi && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
