@@ -123,7 +123,7 @@ The backend uses the following packages:
 - dockerode
 - nodemon (development)
 
-Navigate to the project directory Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/ and install the dependencies with:
+Navigate to the project directory `Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/` and install the dependencies with:
 
 ```bash
 cd backend
