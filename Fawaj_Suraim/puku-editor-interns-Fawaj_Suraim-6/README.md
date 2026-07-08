@@ -157,7 +157,7 @@ npm install
 
 This is the easiest way to run the full application locally.
 
-Navigate to the project directory Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/ and execute the following command:
+Navigate to the project directory `Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/` and execute the following command:
 ```bash
 make up
 ```
