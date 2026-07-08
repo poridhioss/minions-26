@@ -166,7 +166,7 @@ make up
 Then open the application in your browser:
 
 - http://localhost:8080
-<img width="1362" height="700" alt="Screenshot from 2026-07-08 16-11-26" src="https://github.com/user-attachments/assets/5313f6fb-f572-4921-b07c-9703cb1701c3" />
+
 <img width="1362" height="700" alt="Screenshot from 2026-07-08 16-14-10" src="https://github.com/user-attachments/assets/b61a7533-d824-46ac-8f5f-079734b312e2" />
 
 To stop the stack later:
