@@ -1,353 +1,316 @@
-# Replit — Browser-Based IDE Stack
+### Replit-Mini
 
-A small, self-hosted "Replit-style" IDE: a React + Vite editor in the browser
-talks over Socket.IO to a Node orchestration server, which spawns and manages
-ephemeral Docker sandbox containers where the user's code actually runs.
+This repository contains a browser-based coding environment inspired by Replit. It gives users a web editor, terminal access, and a sandboxed execution environment so they can create files, run code, and interact with a live container from the browser.
 
-```
-+-----------------------------+       +-----------------------------+
-|  Browser (React + Vite)     |       |  Host Docker engine         |
-|                             |       |                             |
-|  - Monaco editor            |  HTTP |  replit-backend             |
-|  - xterm.js terminals       +------>+    - dockerode              |
-|  - Socket.IO client         |  WSS  |    - spawns sandboxes       |
-+-----------------------------+       |    - exec into PTYs         |
-                                      |    - file read/write        |
-                                      +-------------+---------------+
-                                                    | dockerode
-                                                    v
-                                      +-----------------------------+
-                                      |  replit-sandbox (per user)  |
-                                      |    - non-root `developer`   |
-                                      |    - bash + node + python    |
-                                      |    - /workspace as cwd      |
-                                      +-----------------------------+
-```
+Objectives:
+- full-stack web development with React and Node.js
+- real-time communication with Socket.IO
+- container orchestration with Docker
+- isolated code execution in sandbox containers
+- how a browser-based IDE can be built from scratch
 
-## Repository layout
+---
 
-| Path | What it is |
-|---|---|
-| `backend/` | Node + Express + Socket.IO orchestration server |
-| `backend/Dockerfile` | Image for the orchestrator (runs as `node` user) |
-| `backend/Dockerfile.sandbox` | Image for the per-user workspace container |
-| `frontend/` | React + Vite SPA (Monaco editor, xterm.js, Socket.IO client) |
-| `frontend/Dockerfile` | Multi-stage Vite build served by Nginx |
-| `frontend/nginx.conf` | Nginx config: serves the SPA and reverse-proxies `/api` + `/socket.io` |
-| `docker-compose.yml` | Production stack: `replit-backend` + `replit-frontend` on `replit-net` |
-| `Makefile` | Convenience targets (`up`, `down`, `sandbox`, `dev`, ...) |
-| `.dockerignore` | Excludes `.replit*` host state from the build context |
+## 1. Project Overview
 
-## Prerequisites
+The application has three main parts:
 
-- Docker Engine 24+ with the Compose plugin
-- Node.js 20+ and npm (only required for the native `make dev` workflow)
-- Linux host user must be in the `docker` group, or you'll need root to talk
-  to `/var/run/docker.sock`
+1. Frontend
+   - Built with React and Vite
+   - Provides the editor, sidebar, terminal panel, and UI chrome
+   - Uses Monaco Editor for code editing and xterm.js for terminal display
 
-Verify with:
+2. Backend
+   - Built with Node.js and Express
+   - Handles API requests and WebSocket communication
+   - Connects the browser to sandbox containers
+
+3. Sandbox Environment
+   - Uses Docker containers to run user code safely
+   - Gives each session an isolated workspace
+   - Allows the user to execute files and interact with a terminal
+
+In short, the project is a mini online IDE where the browser acts as the client, the backend manages containers, and Docker provides the execution environment.
+
+> Important note: This Replit-mini app is mainly intended for editing and running JavaScript and Python files. The built-in Run action currently supports JavaScript and Python execution through Node.js and Python inside the sandbox. Other languages can be created and edited, but they are not the main supported workflow for this lab.
+
+---
+
+## 2. Learning Objectives
+
+By completing this lab, you will learn how to:
+- install and run a full-stack project locally
+- understand the frontend and backend architecture
+- run the app with Docker
+- install dependencies for both the client and server
+- explore how file editing and terminal execution work
+- troubleshoot common setup issues
+
+---
+
+## 3. Required Environment
+
+Before starting, make sure the following software is installed on your computer.
+
+### Required software
+- Git
+- Node.js 20+ and npm
+- Docker Engine 24+ with Docker Compose plugin
+- A terminal (bash, zsh, or PowerShell)
+- VS Code is recommended
+
+### Verify the installation
+
+Run the following commands:
 
 ```bash
 docker --version
 docker compose version
-docker ps
+node --version
+npm --version
+git --version
 ```
 
-If `docker ps` requires `sudo`, add yourself to the `docker` group and re-login:
+If you see version numbers, your environment is ready.
+<img width="1366" height="225" alt="Screenshot from 2026-07-08 11-16-19" src="https://github.com/user-attachments/assets/94c65e65-0735-4d0b-add7-df82db62fbf9" />
+
+### Linux-specific Docker setup
+If Docker requires sudo on your machine, add your user to the Docker group:
 
 ```bash
 sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-## Quick start (Docker, the recommended path)
+Then verify again:
 
 ```bash
-# 1. Build the sandbox image (one-time, and any time you change
-#    backend/Dockerfile.sandbox). `make up` does this for you too.
-make sandbox
-
-# 2. Build + start the full stack.
-make up
-
-# 3. Open the editor.
-open http://localhost:8080        # macOS
-xdg-open http://localhost:8080    # Linux
+docker ps
 ```
+---
 
-`make up` automatically detects the gid of your host's `/var/run/docker.sock`
-and injects it into the backend container via `group_add:` so the in-container
-`node` user can talk to the daemon. You should see this on stdout:
+## 4. Step-by-Step Lab Instructions
 
-```
-Host docker socket group gid: 1002
-```
-
-The first browser request hits `POST /api/containers`, the backend spawns a
-fresh `replit-sandbox` container running as the unprivileged `developer` user,
-and the editor attaches to its bash PTY.
-
-### Useful Make targets
-
-| Command | Effect |
-|---|---|
-| `make help` | List all targets with one-line descriptions |
-| `make up` | Build the sandbox image and bring the compose stack up |
-| `make down` | Stop the stack (keeps images and containers' filesystems) |
-| `make restart` | `down` then `up` |
-| `make logs` | Tail logs from both services |
-| `make ps` | Show the running containers |
-| `make sandbox` | Build only the `replit-sandbox` image |
-| `make sandbox-rebuild` | Rebuild `replit-sandbox` from scratch (no cache) |
-| `make dev` | Hint to run `npm run dev` in `backend/` and `frontend/` |
-| `make verify` | Smoke-check that compose config parses and frontend builds |
-| `make clean` | Stop the stack, remove sandboxes, remove images |
-
-### Equivalent direct `docker compose` flow
-
-If you'd rather skip the Makefile:
+### Step 1: Clone the project
 
 ```bash
-docker build -f backend/Dockerfile.sandbox -t replit-sandbox backend/
-docker compose build
-docker compose up
+# 1. Clone the repository skeleton (no files downloaded yet)
+git clone --no-checkout --sparse --filter=blob:none https://github.com/poridhioss/minions-26
+
+# 2. Enter the repository directory
+cd minions-26
+
+# 3. Set the sparse-checkout path to specific project
+git sparse-checkout set Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6
+
+# 4. Checkout the files into your local system
+git checkout
+
+# 5. Nevigate to the project directory
+cd Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/
 ```
+<img width="1354" height="523" alt="Screenshot from 2026-07-08 13-27-38" src="https://github.com/user-attachments/assets/bba5e96d-5853-49de-bcd5-feda952da079" />
 
-> **Linux gotcha:** when invoking Compose directly, pass the docker socket
-> gid so the in-container `node` user can read the socket:
->
-> ```bash
-> DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) docker compose up
-> ```
->
-> `make up` does this for you. On macOS / Windows the socket is a named
-> pipe and `group_add` is silently ignored, so it's safe to set either way.
+---
 
-## Quick start (native dev mode, no Docker)
+### Step 2: Environment Setup
 
-For faster iteration on either side, run them directly on the host:
+### Required Backend dependencies
+The backend uses the following packages:
+- express
+- cors
+- socket.io
+- dockerode
+- nodemon (development)
+
+Navigate to the project directory Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/ and install the dependencies with:
 
 ```bash
-# Terminal 1
 cd backend
 npm install
-npm run dev                       # nodemon on :3001
+```
+<img width="1362" height="201" alt="Screenshot from 2026-07-08 15-47-15" src="https://github.com/user-attachments/assets/0c6338df-f558-460d-8e68-e4d322dc747f" />
 
-# Terminal 2
+### Required Frontend dependencies
+The frontend uses the following packages:
+- react
+- react-dom
+- vite
+- @monaco-editor/react
+- socket.io-client
+- @xterm/xterm
+- @xterm/addon-fit
+- eslint and related development tools
+
+Install them with:
+
+```bash
+
 cd frontend
 npm install
-npm run dev                       # Vite on :5173
 ```
+<img width="1362" height="201" alt="Screenshot from 2026-07-08 15-47-07" src="https://github.com/user-attachments/assets/9e353928-f38b-4351-9391-6824e65e4b67" />
 
-The Vite dev server proxies `/api` and `/socket.io` to `http://localhost:3001`
-(see `frontend/vite.config.js`). In this mode the backend uses the host's
-Docker daemon directly (via `/var/run/docker.sock`), so the same docker-group
-membership requirement applies.
+---
 
-## How it works
+### Step 3: Build and run the project with Docker (recommended)
 
-### Frontend (`frontend/src/`)
+This is the easiest way to run the full application locally.
 
-- `App.jsx` boots the Socket.IO client and wires it to the editor + terminal.
-- `components/Editor.jsx` mounts a Monaco editor instance.
-- `components/Terminal.jsx` mounts an xterm.js terminal that talks xterm
-  escape sequences over a Socket.IO terminal namespace.
-- `components/FileTree.jsx` is the workspace file browser.
-- `services/socket.js` is the single Socket.IO connection; everything else
-  subscribes to its events.
+Navigate to the project directory Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/ and execute the following command:
+```bash
+make up
+```
+<img width="1355" height="689" alt="Screenshot from 2026-07-08 16-05-28" src="https://github.com/user-attachments/assets/a7ae180c-cab0-4327-8b40-b921d24e31fa" />
 
-User preferences (theme, font size, etc.) persist in `localStorage` under
-the key `replit.editor`.
+Then open the application in your browser:
 
-### Backend (`backend/src/`)
+- http://localhost:8080
+<img width="1362" height="700" alt="Screenshot from 2026-07-08 16-11-26" src="https://github.com/user-attachments/assets/5313f6fb-f572-4921-b07c-9703cb1701c3" />
+<img width="1362" height="700" alt="Screenshot from 2026-07-08 16-14-10" src="https://github.com/user-attachments/assets/b61a7533-d824-46ac-8f5f-079734b312e2" />
 
-- `server.js` is the Express + Socket.IO entry point. Wires the routes,
-  the socket handlers, and the graceful-shutdown container cleanup.
-- `config/index.js` is the dependency-free configuration module
-  (`PORT`, `SANDBOX_IMAGE`, `SANDBOX_USER`, `AUTO_CLEANUP`, ...).
-- `services/docker.js` is the dockerode wrapper. Resolves the sandbox
-  image (with a `node:20-slim` fallback for first-boot), creates
-  containers, and destroys them.
-- `services/sandbox-fs.js` is the in-container file API. Reads/writes
-  files by shelling into the running sandbox as the `developer` user.
-- `services/terminal.js` is the PTY bridge. Streams xterm escape codes
-  between the browser and `docker exec`.
-- `state/registry.js` is the in-memory map of container id → dockerode
-  handle. Used by the socket disconnect handler to reap sandboxes.
-- `routes/` contains the HTTP endpoints (`/api/containers`,
-  `/api/files`, `/api/health`).
-
-### Sandboxing model
-
-- Every user gets a fresh container from the `replit-sandbox` image.
-- The container runs as the unprivileged `developer` user (not root).
-- The container has its own filesystem (no host bind-mounts), so a
-  `rm -rf ~` in the user's shell can only nuke the sandbox.
-- `Memory: 512 MB`, `NanoCpus: 500_000_000` (0.5 CPU) are set by
-  `createSandbox` to cap noisy-neighbor impact.
-- `AutoRemove: true` means the Docker daemon reaps the container when
-  it stops, so a crashed orchestrator never leaves orphans behind.
-- The browser socket's `disconnect` event also triggers explicit
-  `destroySandbox` to free resources eagerly.
-
-To keep a sandbox alive after disconnect (useful for debugging), set
-`AUTO_CLEANUP=false` in `backend/src/config/index.js` (or pass
-`AUTO_CLEANUP=false` in the environment).
-
-## Configuration
-
-All knobs live in `backend/src/config/index.js` and can be overridden
-via environment variables (which is how `docker-compose.yml` passes them):
-
-| Env var | Default | Meaning |
-|---|---|---|
-| `PORT` | `3001` | HTTP port the backend listens on |
-| `SANDBOX_IMAGE` | `replit-sandbox` | Image the orchestrator spawns |
-| `SANDBOX_USER` | `developer` | In-container user for `docker exec` |
-| `AUTO_CLEANUP` | `true` | Reap the sandbox on socket disconnect |
-| `DOCKER_SOCKET_PATH` | `/var/run/docker.sock` | Host docker daemon socket |
-| `FRONTEND_PORT` (compose) | `8080` | Host port for the Nginx frontend |
-
-## Troubleshooting
-
-### `POST /api/containers` returns 500 with `EACCES /var/run/docker.sock`
-
-The in-container `node` user can't read the host's docker socket. This
-means `DOCKER_GID` wasn't propagated into the backend container.
-
-- If you used `make up`, your host user probably isn't in the `docker`
-  group; run `sudo usermod -aG docker $USER` and re-login.
-- If you used `docker compose` directly, prepend
-  `DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)`.
-- As a last resort, `sudo chmod 666 /var/run/docker.sock` (revert after
-  debugging — it's a security regression).
-
-### `Docker image 'replit-sandbox' not found, falling back to 'node:20-slim'` and then `not available`
-
-You skipped `make sandbox` (or the build failed — see below). Run
-`make sandbox` and retry.
-
-### `make sandbox` fails with `GID '1000' already exists`
-
-This is a base-image quirk: recent `node:20-slim` images ship with
-`node:x:1000` already, so pinning `--gid 1000` collides. The
-`backend/Dockerfile.sandbox` deliberately does NOT pin the id; it lets
-`useradd` pick the next free one and dumps the assigned ids to
-`/etc/profile.d/developer-ids.sh`. The orchestrator passes the user by
-name, so this is transparent.
-
-### Frontend shows the Vite dev page instead of the editor
-
-You probably opened the native dev server (`:5173`) but the backend
-isn't running on `:3001`, so the socket connection failed. Either run
-`cd backend && npm run dev` in another terminal, or use `:8080` where
-everything is bundled.
-
-### Dozens of `puku-sandbox` containers are still running
-
-These are orphans from the pre-rename codebase that don't have
-`AutoRemove` enabled. Clean them up with:
+To stop the stack later:
 
 ```bash
-docker ps -aq --filter "ancestor=puku-sandbox" | xargs -r docker rm -f
-docker rmi -f puku-sandbox
+make down
 ```
+<img width="1356" height="160" alt="Screenshot from 2026-07-08 16-08-55" src="https://github.com/user-attachments/assets/77cedf3e-43ba-4b74-86e0-33a187996da7" />
 
-## Development conventions
 
-- `cd backend && npm run dev` (nodemon) for backend iteration.
-- `cd frontend && npm run dev` (Vite HMR) for frontend iteration.
-- `make verify` runs `docker compose config` + a smoke-boot of the
-  backend + a production `vite build`. Run it before pushing.
-- Backend files are pure CommonJS; no transpilation step.
-- Frontend uses the modern Vite + React (JSX, no TypeScript yet).
+### Step 4: Understand the project structure
 
-## License
+The important folders are:
+- backend/ — Node.js server and Docker orchestration logic
+- frontend/ — React UI and editor experience
+- docker-compose.yml — Docker service configuration
+- Makefile — helper commands for starting and stopping the stack
 
-This project is intended for local self-hosting. Pick a license that
-matches your distribution model before publishing.
 
-## Publishing to Docker Hub
+### Step 5: Run the project in native mode (optional)
 
-The three service images (`replit-sandbox`, `replit-backend`,
-`replit-frontend`) are built to be publishable as-is. The full sequence
-is:
+This method runs the backend and frontend directly on your machine.
+
+Open two terminals.
+
+Terminal 1 — backend:
 
 ```bash
-# One-time: create an access token at
-#   https://hub.docker.com/settings/security
-# and use it as the password below.
-docker login
-
-# Build each image locally and push to your namespace.
-export DH_USER=your-dockerhub-username   # e.g. suraim001
-
-make sandbox                               # builds replit-sandbox
-docker compose build                       # builds replit-{backend,frontend}
-
-for img in replit-sandbox replit-backend replit-frontend; do
-  docker tag  $img:latest ${DH_USER}/$img:latest
-  docker push ${DH_USER}/$img:latest
-done
+cd backend
+npm install
+npm run dev
 ```
+<img width="1362" height="507" alt="Screenshot from 2026-07-08 16-17-03" src="https://github.com/user-attachments/assets/35d923bf-2a6d-487a-807b-eb0b1fee5bc2" />
 
-### Running a fresh host against the published images
 
-Once the images are in your Docker Hub namespace, a clean host with no
-source tree (just a copy of `docker-compose.yml` +
-`docker-compose.published.yml`) can pull and run them with:
+Terminal 2 — frontend:
 
 ```bash
-# Same overrides as the local path — picks up DOCKER_GID automatically.
-make up-published          # defaults to DH_USER=suraim001
-# or with your own namespace:
-make up-published DH_USER=yourname
-# or one-off:
-DH_USE_HUB=true DH_USER=yourname make up
+cd frontend
+npm install
+npm run dev
 ```
+<img width="1355" height="514" alt="Screenshot from 2026-07-08 16-18-37" src="https://github.com/user-attachments/assets/18a8b13a-77df-429d-9544-abfcfb7150af" />
 
-Under the hood, `up-published` layers `docker-compose.published.yml`
-on top of `docker-compose.yml`. The override uses Compose's `!reset null`
-extension tag to drop the `build:` blocks and point both services at
-`${DH_USER}/replit-*` images, and rewrites the backend's
-`SANDBOX_IMAGE` env var so the orchestrator spawns from the published
-sandbox image too.
 
-### What the override does
+Then open:
 
-```yaml
-# docker-compose.published.yml (excerpt)
-services:
-  backend:
-    build: !reset null                  # drop the build: block
-    image: ${DH_USER:-suraim001}/replit-backend:latest
-    environment:
-      SANDBOX_IMAGE: ${DH_USER:-suraim001}/replit-sandbox:latest
-  frontend:
-    build: !reset null
-    image: ${DH_USER:-suraim001}/replit-frontend:latest
-```
+- http://localhost:5173
 
-`!reset null` is the documented Compose extension tag that removes a
-key from the merged config — it lets the override completely replace
-`build:` with `image:` without copying every other key.
+The frontend will connect to the backend on port 3001.
 
-### Multi-arch notes
+<img width="1366" height="697" alt="Screenshot from 2026-07-08 16-21-29" src="https://github.com/user-attachments/assets/02dcaa56-a09d-49cc-81e7-7e4d332e14dc" />
 
-The images built by the included Dockerfiles are `linux/amd64` only.
-To publish for both amd64 and arm64 (e.g. Apple Silicon servers,
-Raspberry Pi clusters), swap `docker build` / `docker push` for
-`docker buildx build --platform linux/amd64,linux/arm64 --push …`:
+
+---
+
+## 5. How to Use the Application
+
+Once the app is running, follow these steps:
+
+1. Open the browser-based IDE.
+2. Create or open a file from the sidebar.
+3. Write code in the Monaco editor.
+4. Save your file.
+5. Run the file using the built-in run action.
+6. Observe the terminal output in the sandbox container.
+
+This demonstrates the main workflow of the project: edit → save → execute.
+
+---
+
+## 6. Features and Limitations
+
+### Features
+- Browser-based code editor with Monaco Editor
+- Sidebar-based file explorer and tabbed editing
+- Terminal access inside a Docker sandbox
+- Support for saving and running files from the browser
+- Isolated execution environment for each session
+- Real-time communication between frontend and backend using Socket.IO
+
+### Limitations
+- The main supported runtime workflow in this lab is JavaScript and Python.
+- The built-in Run action is designed for JavaScript and Python files through Node.js and Python in the sandbox.
+- This project is a mini IDE and does not provide the full feature set of professional tools like VS Code or Replit.
+- Advanced features such as multi-language support, package management for all languages, and full debugging tools are not the focus of this lab.
+- Docker must be available on the machine for the sandboxed execution workflow.
+
+---
+
+## 7. Project Components to Explore
+
+### Backend
+Key files include:
+- backend/src/server.js — main server entry point
+- backend/src/routes/containers.js — container-related routes
+- backend/src/routes/files.js — file read/write routes
+- backend/src/services/docker.js — Docker sandbox management
+- backend/src/services/terminal.js — terminal execution bridge
+
+### Frontend
+Key files include:
+- frontend/src/App.jsx — main UI application shell
+- frontend/src/components/EditorPane.jsx — editor component
+- frontend/src/components/TerminalPane.jsx — terminal UI
+- frontend/src/api.js — API calls to the backend
+
+### Infrastructure
+- docker-compose.yml — defines the frontend and backend containers
+- backend/Dockerfile.sandbox — creates the sandbox image used for code execution
+- Makefile — shortcuts for building and running the app
+
+---
+
+## 7. Common Troubleshooting
+
+### Docker permission issue
+If Docker commands fail with permission errors:
 
 ```bash
-docker buildx create --use
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -f backend/Dockerfile.sandbox \
-  -t ${DH_USER}/replit-sandbox:latest --push backend/
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -f backend/Dockerfile \
-  -t ${DH_USER}/replit-backend:latest --push backend/
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -f frontend/Dockerfile \
-  -t ${DH_USER}/replit-frontend:latest --push frontend/
+sudo usermod -aG docker $USER
+newgrp docker
 ```
+
+### Sandbox image missing
+If the sandbox image is not found:
+
+```bash
+make sandbox
+```
+### Frontend does not connect to backend
+Check that the backend is running and that the app is opened on the correct port.
+
+### Port already in use
+If port 8080 or 5173 is occupied, stop the other process or change the port.
+
+---
+
+## 8. Summary
+
+This project is a practical example of how a browser-based IDE can be built using:
+- React for the interface
+- Node.js for the server
+- Socket.IO for real-time communication
+- Docker for secure code execution
+
+It is an excellent lab project because it combines frontend development, backend development, networking, and containerization in one complete system.
