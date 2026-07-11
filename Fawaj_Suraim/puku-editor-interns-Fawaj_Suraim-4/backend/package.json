@@ -1,0 +1,31 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "Fawaj_Suraim",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start:server": "node src/server.js",
+    "start:worker": "node src/worker/jobWorker.js",
+    "dev:server": "nodemon src/server.js",
+    "dev:worker": "nodemon src/worker/jobWorker.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "test:unit": "node --test test/jobStore.test.js test/logStore.test.js",
+    "test:e2e": "node ./test/runE2E.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.79.3",
+    "dockerode": "^5.0.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "ioredis": "^5.11.1",
+    "mkdirp": "^3.0.1",
+    "uuid": "^14.0.1",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
