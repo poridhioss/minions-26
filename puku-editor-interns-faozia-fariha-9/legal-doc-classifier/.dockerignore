@@ -1,0 +1,16 @@
+# Exclude the local Prometheus / Grafana / MLflow stack from the
+# production Docker image. Hugging Face Spaces only needs the API runtime.
+docker-compose.yml
+prometheus.yml
+grafana/
+scripts/check_*.ps1
+scripts/probe_queries.ps1
+scripts/reload_dashboard.ps1
+scripts/payload.json
+.git/
+.gitignore
+.puku/
+__pycache__/
+*.pyc
+*.log
+README_HF.md
