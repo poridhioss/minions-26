@@ -243,7 +243,7 @@
     </section>
 
     <footer>
-      <p>API endpoint: <code>POST http://localhost:8000/predict</code></p>
+      <p>API endpoint: <code id="api-endpoint">POST http://localhost:8000/predict</code></p>
     </footer>
   </main>
 
@@ -251,7 +251,16 @@
     (function () {
       'use strict';
 
-      var API_URL = 'http://localhost:8000/predict';
+      // Window.HF_SPACE_CONFIG is injected by the Space runtime when this
+      // page is served by the FastAPI app (see app/main.py). When the page
+      // is opened from `file://` or via a plain static host it falls back
+      // to localhost so local development still works out of the box.
+      var HF_SPACE_CONFIG = window.HF_SPACE_CONFIG || {};
+      var API_URL = HF_SPACE_CONFIG.apiUrl || 'http://localhost:8000/predict';
+      var endpointLabel = document.getElementById('api-endpoint');
+      if (endpointLabel && HF_SPACE_CONFIG.apiUrl) {
+        endpointLabel.textContent = 'POST ' + HF_SPACE_CONFIG.apiUrl;
+      }
 
       var LABEL_CLASSES = {
         'Criminal Procedure': 'criminal-procedure',

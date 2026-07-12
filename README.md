@@ -1075,3 +1075,149 @@ will hit the problems.
 | Frontend "Could not connect to API"  | The Docker stack is not running - run Chapter 3       |
 | Training `CUDA out of memory`        | Lower per-device batch size in the training script    |
 | Training `Runtime disconnected`      | Colab idle timeout - keep the tab focused or use Colab Pro |
+
+---
+
+# Chapter 7: Deploying to Hugging Face Spaces (Free)
+
+> **Why this chapter exists.** Chapters 1-6 walk you through the local
+> Docker stack. This chapter is for the moment when you want to share your
+> classifier with the world without paying for a server. Hugging Face
+> Spaces gives every account a free CPU container that never sleeps, has
+> no time limit, and asks for no credit card. The only cost is that the
+> container has 16 GB of RAM and 2 vCPUs - which is plenty for Legal-BERT
+> but means we can't ship the 418 MB checkpoint inside the git repo. We
+> split the deployable into two halves: the *image* (this repo) and the
+> *weights* (a Hugging Face Hub model repo). The image downloads the
+> weights on first boot.
+
+## What you will end up with
+
+1. A Hugging Face **model repo** holding the Legal-BERT checkpoint.
+2. A Hugging Face **Space** (Docker SDK) running this FastAPI image.
+3. A public URL of the form `https://huggingface.co/spaces/<you>/legal-classifier`
+   that loads the embedded demo UI and exposes `/predict`, `/health`,
+   `/metrics`.
+
+## Step 1: Create a free Hugging Face account
+
+Sign up at <https://huggingface.co/join>. The free tier is all you need.
+
+## Step 2: Authenticate from your laptop
+
+The fastest way is the CLI:
+
+```bash
+pip install -U huggingface_hub
+huggingface-cli login
+# paste a token from https://huggingface.co/settings/tokens
+```
+
+On Windows PowerShell the same commands work; the token is stored in
+`%USERPROFILE%\.cache\huggingface\token`.
+
+## Step 3: Push the checkpoint to a Hub model repo
+
+From the project root (`puku-editor-interns-faozia-fariha-9/legal-doc-classifier/`):
+
+```bash
+python scripts/upload_to_hf.py --repo-id <your-hf-username>/legal-bert-scotus
+```
+
+Add `--private` if you don't want the weights visible to anyone. The script
+creates the repo if needed and uploads every file inside `saved_model/`
+(`config.json`, `model.safetensors`, tokenizer files, etc.). For our 418 MB
+checkpoint this typically takes 1-3 minutes.
+
+## Step 4: Create the Space
+
+1. Open <https://huggingface.co/new-space>.
+2. **Name**: `legal-classifier` (or anything you like).
+3. **SDK**: pick **Docker**. Gradio/Static are not appropriate here.
+4. **Hardware**: leave the free CPU tier selected.
+5. Click **Create Space**.
+
+## Step 5: Wire the Space to this repo
+
+You have two options. Pick whichever is easier.
+
+### Option A: Link a GitHub repo (recommended)
+
+1. In your Space's **Files** tab, click **Add Space secrets** and set:
+   - `HF_MODEL_ID` = `<your-hf-username>/legal-bert-scotus`
+   - `HF_TOKEN`    = your HF token (only if the model repo is private)
+2. In **Settings -> Repository**, click **Connect to a GitHub repo** and
+   select the `poridhioss/minions-26` repo at branch `main`. Spaces will
+   pull the `legal-doc-classifier/` subfolder automatically as long as
+   `README_HF.md` is present at the Space root.
+
+   > **Note**: if Spaces refuses to use a subfolder, copy the contents of
+   > `legal-doc-classifier/` into a fresh repo and connect that. The whole
+   > project is ~0.1 MB without `saved_model/`, so the clone is instant.
+
+### Option B: Push directly with `git`
+
+```bash
+# Add the Space as a second remote.
+git remote add space https://huggingface.co/spaces/<your-hf-username>/legal-classifier
+
+# Push only the subfolder (use git subtree, or push from inside it).
+cd legal-doc-classifier
+git subtree push --prefix=. space main
+```
+
+The `README_HF.md` at the top of `legal-doc-classifier/` contains the
+YAML frontmatter (`sdk: docker`, `app_port: 7860`) that Spaces needs to
+recognise the project.
+
+## Step 6: Set the secrets
+
+In the Space's **Settings -> Variables and secrets**, add:
+
+| Name           | Value                                  | Secret? |
+|----------------|----------------------------------------|---------|
+| `HF_MODEL_ID`  | `<your-hf-username>/legal-bert-scotus` | no      |
+| `HF_TOKEN`     | your HF token                          | **yes** |
+
+That is all. The next build (triggered automatically by the git push or
+the GitHub sync) will:
+
+1. Build the Docker image from `Dockerfile` (no `saved_model/` is shipped,
+   the COPY step copies an empty directory thanks to `.gitkeep`).
+2. Start uvicorn on port `7860` (the `PORT` env var is set by Spaces).
+3. Call `model_loader.load()` during startup, which sees the empty local
+   checkpoint and falls back to `huggingface_hub.snapshot_download` using
+   `HF_MODEL_ID`. The first request will be slow; every later one is fast.
+
+## Step 7: Verify
+
+Open the Space URL in a browser. You should see the same demo UI as
+locally, but pointing its `POST /predict` at the Space's own origin (the
+`window.HF_SPACE_CONFIG` block injected by `app/main.py` handles this).
+
+```bash
+curl https://<your-hf-username>-legal-classifier.hf.space/health
+# {"status":"ok"}
+
+curl -X POST https://<your-hf-username>-legal-classifier.hf.space/predict \
+     -H 'Content-Type: application/json' \
+     -d '{"text":"The defendant was charged with assault and battery."}'
+# {"label":"Criminal Procedure","confidence":0.91}
+```
+
+## Why this is free forever
+
+- HF Spaces free CPU containers do not sleep after inactivity, unlike
+  Render's free web services.
+- No credit card is required.
+- Hugging Face is the natural home for a transformer demo, so sharing
+  the URL with other ML practitioners will be received warmly.
+
+## When you outgrow it
+
+- Need a GPU? Spaces offers paid T4/A10G instances for ~$0.60/hr; turn it
+  on in **Settings -> Hardware**.
+- Need >16 GB RAM for a bigger model? Same answer.
+- Need full Prometheus + Grafana observability? Re-deploy the whole stack
+  to Render (see the README on the bounty repo) and keep using the HF Hub
+  model repo as the source of truth for the weights.

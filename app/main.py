@@ -1,14 +1,17 @@
 # ============================================================
 # FastAPI app for the Legal Document Classifier.
 #
-# Single endpoint:  POST /predict
-#   Input:   {"text": "The defendant was charged with ..."}
-#   Output:  {"label": "Criminal Procedure", "confidence": 0.94}
+# Endpoints:
+#   GET  /            -> embedded demo UI (static index.html)
+#   GET  /health      -> liveness probe
+#   POST /predict     -> {"text": "..."} -> {"label": "...", "confidence": 0.x}
+#   GET  /metrics     -> Prometheus text exposition
 # ============================================================
-
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Response
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from prometheus_client import (
@@ -19,10 +22,6 @@ from prometheus_client import (
     generate_latest,
 )
 
-# Our own helper that loads the model and runs inference.
-# Relative import: main.py lives INSIDE the app/ package, so we
-# import the sibling module directly. This is what uvicorn uses
-# when invoked as `uvicorn app.main:app`.
 from . import model_loader
 
 
@@ -80,7 +79,7 @@ async def lifespan(_app: FastAPI):
     # This runs when the server starts, before the first request.
     model_loader.load()
     yield
-    # Nothing to clean up — the model stays in memory.
+    # Nothing to clean up - the model stays in memory.
 
 
 app = FastAPI(
@@ -94,14 +93,14 @@ app = FastAPI(
 # this API from a browser. Without this, browsers block cross-origin POSTs.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # the API has no auth, so any origin is fine
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
 
-# ---------- Health check (handy for Docker / load balancers) ----------
+# ---------- Health check ----------
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -110,12 +109,39 @@ def health():
 # ---------- Prometheus scrape endpoint ----------
 @app.get("/metrics")
 def metrics():
-    """
-    Exposes all registered Prometheus metrics in the text exposition
-    format. Prometheus is configured (see prometheus.yml) to scrape
-    this URL every 15 seconds.
-    """
+    """Exposes all registered Prometheus metrics in text exposition format."""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+# ---------- Demo UI ----------
+INDEX_HTML_PATH = Path(__file__).resolve().parent.parent / "index.html"
+
+
+def _render_index(base_url: str) -> str:
+    """Inject the runtime config object into the static HTML.
+
+    The page reads `window.HF_SPACE_CONFIG` and falls back to localhost
+    if it is missing - so this just sets it to the current origin.
+    """
+    html = INDEX_HTML_PATH.read_text(encoding="utf-8")
+    config_block = (
+        f'<script>\n    window.HF_SPACE_CONFIG = {{ apiUrl: "{base_url.rstrip("/")}/predict" }};\n</script>'
+    )
+    if "<script>" in html:
+        idx = html.index("<script>")
+        html = html[:idx] + config_block + "\n  " + html[idx:]
+    else:
+        html = html.replace("</head>", config_block + "\n</head>")
+    return html
+
+
+@app.get("/", include_in_schema=False)
+def index(request: Request):
+    """Serve the embedded demo UI with a runtime-injected API URL."""
+    base_url = str(request.base_url).rstrip("/")
+    # On Hugging Face Spaces the base_url is the Space's own origin, so
+    # the frontend stays on the same origin (avoids CORS altogether).
+    return Response(content=_render_index(base_url), media_type="text/html")
 
 
 # ---------- Prediction endpoint ----------
@@ -127,15 +153,12 @@ def predict(req: PredictRequest):
         label, confidence = model_loader.predict(req.text)
     except Exception as exc:
         ERROR_TOTAL.inc()
-        # Don't leak internals to the client; just report the failure.
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
     finally:
         # Record latency even on failures so the dashboard can spot
         # slow-failing requests.
         PREDICTION_LATENCY.observe(time.perf_counter() - start)
-
     # Update the "live" metrics only on success.
     PREDICTION_CONFIDENCE.set(confidence)
     PREDICTION_LABEL_TOTAL.labels(label=label).inc()
-
     return PredictResponse(label=label, confidence=round(confidence, 4))
