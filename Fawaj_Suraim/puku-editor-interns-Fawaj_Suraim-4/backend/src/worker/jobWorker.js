@@ -12,6 +12,7 @@ const docker = new Docker(); // uses /var/run/docker.sock by default
 const pub = new IORedis(connection);
 
 const channelFor = (jobId) => `bull:container-jobs:${jobId}`;
+const cancelKey = (jobId) => `job-cancel:${jobId}`;
 
 const containersByJobId = new Map();
 
@@ -26,6 +27,10 @@ const worker = new Worker(
     const logLine = (event) =>
       logStore.append(jobId, JSON.stringify(event) + '\n')
         .catch((err) => log.error('logstore_write_failed', { jobId, err: err.message }));
+
+    if ((await pub.get(cancelKey(jobId))) === '1') {
+      throw new Error('cancelled by user');
+    }
 
     publish({ type: 'start', jobId, image, command });
     logLine({ type: 'start', jobId, image, command });
@@ -140,11 +145,34 @@ const worker = new Worker(
       logLine({ type: 'log', stream: 'system', data: `[timeout] killed after ${timeoutMs}ms\n` });
     }, timeoutMs);
 
-    const result = await waitPromise;
+    let interval;
+    const outcome = await Promise.race([
+      waitPromise.then((result) => ({ kind: 'exit', result })),
+      new Promise((resolve) => {
+        interval = setInterval(async () => {
+          if ((await pub.get(cancelKey(jobId))) === '1') {
+            clearInterval(interval);
+            resolve({ kind: 'cancel' });
+          }
+        }, 500);
+      }),
+    ]);
     clearTimeout(timer);
+    clearInterval(interval);
+
+    if (outcome.kind === 'cancel') {
+      try { await container.kill(); } catch (_) {}
+      try { await container.remove({ force: true }); } catch (_) {}
+      containersByJobId.delete(jobId);
+      await pub.del(cancelKey(jobId));
+      throw new Error('cancelled by user');
+    }
+
+    const result = outcome.result;
 
     publish({ type: 'exit', jobId, statusCode: result.StatusCode, timedOut });
     logLine({ type: 'exit', jobId, statusCode: result.StatusCode, timedOut });
+    await pub.del(cancelKey(jobId));
 
     if (timedOut) {
       // Throw so BullMQ triggers retry with backoff; if all attempts fail, the job is marked failed.

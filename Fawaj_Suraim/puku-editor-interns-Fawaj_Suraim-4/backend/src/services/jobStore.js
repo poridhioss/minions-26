@@ -1,8 +1,11 @@
 // src/services/jobStore.js
 const { Queue } = require('bullmq');
+const Redis = require('ioredis');
 const { connection } = require('../queue/jobQueue');
 
 const queue = new Queue('container-jobs', { connection });
+const redis = new Redis(connection);
+const cancelKey = (jobId) => `job-cancel:${jobId}`;
 
 async function getStatus(jobId) {
   const job = await queue.getJob(jobId);
@@ -48,9 +51,16 @@ async function cancelJob(jobId) {
     return { ok: false, reason: 'already_finished' };
   }
 
-  // Move to failed so the worker logic can react on 'failed' event
-  await job.moveToFailed(new Error('cancelled by user'), true);
-  return { ok: true };
+  try {
+    await job.moveToFailed(new Error('cancelled by user'), true);
+    return { ok: true };
+  } catch (err) {
+    if (state === 'active' && /lock mismatch/i.test(err.message)) {
+      await redis.set(cancelKey(jobId), '1', 'EX', 300);
+      return { ok: true, reason: 'cancel_requested' };
+    }
+    throw err;
+  }
 }
 
 module.exports = { getStatus, cancelJob };
