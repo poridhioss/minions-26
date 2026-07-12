@@ -3,55 +3,48 @@ title: Legal Document Classifier
 emoji: ⚖️
 colorFrom: indigo
 colorTo: purple
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 4.44.0
+app_file: app.py
 pinned: false
 license: mit
-short_description: FastAPI + Legal-BERT classifier with live Prometheus metrics.
 ---
 
-# Legal Document Classifier
+# ⚖️ Legal Document Classifier
 
-A FastAPI service that classifies US Supreme Court opinion excerpts into one
-of four SCOTUS topic areas using Legal-BERT, instrumented with Prometheus
-metrics and a small in-browser demo UI.
+A fine-tuned **Legal-BERT** checkpoint served through a tiny **Gradio**
+UI. Paste any legal-text excerpt, click **Classify**, and the model
+predicts one of four SCOTUS topic areas:
 
-This Space runs the FastAPI API on port `7860` (the Hugging Face Spaces
-default). The bundled `index.html` is exposed at `/` by a tiny static file
-mount inside the container, so the whole demo is one URL.
+- Criminal Procedure
+- Civil Rights
+- First Amendment
+- Economic Activity
 
-## How the model is loaded
+This Space runs on the **free CPU tier** of Hugging Face Spaces (16 GB
+RAM, 2 vCPUs). No credit card required. The 418 MB checkpoint is kept
+out of the git repo and pulled from a separate HF Hub model repo at
+startup.
 
-By default the service loads the checkpoint from the local `saved_model/`
-directory. If that directory is empty (typical on Spaces, since the model
-weights are not committed to the repo) the loader falls back to downloading
-them from a Hugging Face Hub model repo, controlled by the env vars:
+## How it works
 
-| Variable      | Purpose                                                   |
-|---------------|-----------------------------------------------------------|
-| `MODEL_DIR`   | Override the local checkpoint directory                  |
-| `HF_MODEL_ID` | Hub repo id (e.g. `yourname/legal-bert-scotus`) to fetch  |
-| `HF_TOKEN`    | Required only if the Hub repo is private                 |
+pp.py is a small Gradio front-end that calls the same
+pp/model_loader.py the FastAPI app uses, so inference behaviour is
+identical.
 
-The first request after boot may take a few seconds while the model
-downloads; subsequent requests are cached on the container's ephemeral disk.
+model_loader resolves the checkpoint in this order:
 
-## Endpoints
+1. $MODEL_DIR if it points at a non-empty directory.
+2. The bundled ./saved_model/ if it is non-empty.
+3. $HF_MODEL_ID set to a Hub model repo (default on Spaces).
 
-| Method | Path        | Description                                       |
-|--------|-------------|---------------------------------------------------|
-| GET    | `/`         | Static demo UI (this is what you see in the tab)  |
-| GET    | `/health`   | Liveness probe                                    |
-| POST   | `/predict`  | `{ "text": "..." }` → label + confidence          |
-| GET    | `/metrics`  | Prometheus exposition format                      |
+## Required Space secrets
 
-## Local development
+Set these in **Settings → Variables and secrets** of your Space:
 
-```bash
-docker compose up --build
-# API on http://localhost:8000
-```
+| Variable      | Required      | Example                              |
+| ------------- | ------------- | ------------------------------------ |
+| HF_MODEL_ID | Yes           | your-username/legal-bert-scotus    |
+| HF_TOKEN    | If private    | your HF access token                 |
 
-Inside the Space the same image is run but bound to port `7860`, and the
-embedded demo automatically points at that origin via the `window.SPACE_CONFIG`
-object baked into `index.html`.
+PORT is set automatically by Spaces to 7860. Do not override it.
