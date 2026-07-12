@@ -1194,16 +1194,16 @@ curl -sS -X POST http://localhost:3000/jobs \
   -H 'Content-Type: application/json' \
   -H 'x-api-key: your-api-key' \
   -d '{"image":"alpine","command":"sleep 120"}'
-# → {"jobId":"…"}
+# → {"jobId":"7c8094f3-d4c5-4ff2-83ed-f6cc3e7da8d1"}
 
-curl -sS http://localhost:3000/jobs/… -H 'x-api-key: your-api-key'
-# → {"state":"active","exitCode":null,"queuedAt":"…","startedAt":"…","finishedAt":null,"durationMs":null,"attemptsMade":1,…}
+curl -sS http://localhost:3000/jobs/<jobId> -H 'x-api-key: your-api-key'
 
 # Cancel:
-curl -sS -X POST http://localhost:3000/jobs/.../cancel -H 'x-api-key: your-api-key'
+curl -sS -X POST http://localhost:3000/jobs/<jobId>/cancel -H 'x-api-key: your-api-key'
 # → {"ok":true}
 ```
 
+![alt text](<images/Screenshot from 2026-07-12 07-42-41.png>) ![alt text](<images/Screenshot from 2026-07-12 07-43-13.png>)
 ---
 
 ## 2.4 Add retries, timeout and graceful shutdown
