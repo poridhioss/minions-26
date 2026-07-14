@@ -114,6 +114,7 @@ dist
 .vscode
 
 .puku
+.puku-cli
 
 # yarn v2
 .yarn/cache
