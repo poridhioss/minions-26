@@ -169,33 +169,16 @@ This repo is large and most of it isn't the project itself — use sparse
 checkout to pull only the directories you need:
 
 ```bash
-# Replace <YOUR_GITHUB_USER>/<YOUR_REPO> with the actual repo path
-REPO_URL="https://github.com/<YOUR_GITHUB_USER>/<YOUR_REPO>.git"
-
-mkdir job-orchestrator && cd job-orchestrator
-git init
-git remote add origin "$REPO_URL"
+git clone --filter=blob:none --sparse https://github.com/poridhioss/minions-26
 
 # Enable sparse checkout
-git config core.sparseCheckout true
+git sparse-checkout set Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-4
 
-# Pull only what you need. Patterns are relative to the repo root.
-cat > .git/info/sparse-checkout <<'EOF'
-/backend/
-/frontend/
-/docker-compose.yml
-/.env.example
-/.gitignore
-/.dockerignore
-/README.md
-EOF
-
-# Fetch + check out just those paths
+# Fetch the contents
 git pull origin main
 ```
 
-After this you'll have `backend/`, `frontend/`, `docker-compose.yml`, and
-the dotfiles — no `node_modules`, no `dist`, nothing else.
+After this you'll have `backend/`, `frontend/`, `docker-compose.yml`, and etc.
 
 ### 2. Prerequisites
 
@@ -211,6 +194,7 @@ the dotfiles — no `node_modules`, no `dist`, nothing else.
 ### 3. Configure environment
 
 ```bash
+cd Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-4
 cp .env.example .env
 # Edit .env and set API_KEY to something long & random:
 #   API_KEY=$(openssl rand -hex 32)
