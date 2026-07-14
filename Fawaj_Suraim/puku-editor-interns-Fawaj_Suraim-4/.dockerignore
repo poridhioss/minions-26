@@ -1,0 +1,24 @@
+# Repo-root .dockerignore — applies to images built from this dir.
+# Keep the image context small and avoid baking secrets in.
+
+# VCS / editor / OS junk
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+.puku
+.DS_Store
+
+# Dependencies (rebuilt inside the image)
+**/node_modules
+
+# Local artefacts
+**/logs
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Misc
+README.md
+*.md

@@ -1,0 +1,132 @@
+# Production-ish bring-up. Run from the repo root:
+#   docker compose up --build
+# The worker service is scaled to 2 replicas; bump with:
+#   docker compose up --scale worker=4 -d
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis-data:/data
+
+  server:
+    # Build context is the REPO ROOT (so ../frontend is reachable).
+    # Dockerfile lives at backend/Dockerfile.
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      # Forward the root .env's API_KEY into the frontend build stage as
+      # VITE_API_KEY so the bundled UI ships with the key already in
+      # place. Without this, the same-origin Docker frontend has an empty
+      # localStorage on first load and every /jobs request returns 401
+      # until the user manually pastes the key into the header input.
+      args:
+        VITE_API_KEY: ${API_KEY:?API_KEY must be set in shell or ./.env}
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      # :?  → fail-fast if API_KEY is unset, instead of silently using "changeme".
+      API_KEY: ${API_KEY:?API_KEY must be set in shell or ./.env}
+      LOG_LEVEL: info
+      NODE_ENV: production
+      # Lock WebSocket connections to specific origins. Comma-separated list.
+      # Omit to allow any origin (dev-only).
+      ALLOWED_WS_ORIGINS: ${ALLOWED_WS_ORIGINS:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/logs:/app/logs
+    # Hardened: read-only rootfs + no-new-privileges. The server doesn't
+    # need the Docker socket (only the worker does).
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=16m
+    user: "1000:1000"
+    command: ["node", "src/server.js"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      # The worker image doesn't need VITE_API_KEY — it doesn't ship the
+      # frontend bundle — but the shared Dockerfile accepts the arg
+      # unconditionally, so we still pass it through (with the same value
+      # as the server) to keep both services rebuildable from one config.
+      args:
+        VITE_API_KEY: ${API_KEY:?API_KEY must be set in shell or ./.env}
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+      NODE_ENV: production
+      WORKER_CONCURRENCY: "2"
+    volumes:
+      # Mount the host Docker socket so the worker can create containers.
+      # For real production, replace with a Docker socket proxy (tecnativa/docker-socket-proxy).
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/logs:/app/logs
+    # Run as UID 1000 so the worker creates new log files with the same
+    # ownership the server (also user: 1000:1000) and any local-dev runs
+    # expect. Without this, files the worker writes end up root:root and
+    # the next worker run (or the server) can't append to them — which
+    # silently turns the test suite's /jobs/:id/logs check into a 404.
+    #
+    # Supplementary GID 1002 matches the host's `docker` group so the
+    # worker can read/write /var/run/docker.sock (which is mode 0660
+    # root:docker on most Linux hosts). 1000 alone would fix the logs
+    # permission problem but break docker.sock access with EACCES.
+    # If your host's docker group has a different GID, adjust this
+    # number to match `getent group docker` on the host.
+    user: "1000:1002"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    cap_add: [SYS_CHROOT]
+    command: ["node", "src/worker/jobWorker.js"]
+
+  # Ephemeral test runner. `npm run test:e2e` does `docker compose run --rm
+  # --no-deps test-runner`, which uses the existing redis + worker but spins
+  # up a fresh app container for the test process. --no-deps keeps it from
+  # restarting the long-running worker on every test run.
+  test-runner:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        VITE_API_KEY: ${API_KEY:-test-key}
+    depends_on:
+      redis:
+        condition: service_healthy
+      server:
+        condition: service_started
+    environment:
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: error
+      NODE_ENV: test
+      API_KEY: test-key
+      WORKER_RUNNING: "1"
+    volumes:
+      # Share the host's logs dir so the test runner can read what the
+      # worker wrote (the worker writes into its own /app/logs mount).
+      - ./backend/logs:/app/logs
+    command: ["node", "--test", "--test-timeout=120000", "--test-concurrency=1", "test/api.test.js"]
+
+
+volumes:
+  redis-data:
