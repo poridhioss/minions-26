@@ -1,8 +1,7 @@
 // src/services/logStore.js
 const fs = require('fs');
 const path = require('path');
-// mkdirp v3 exports named functions; v1/v2 exported a default callable.
-// We destructure the specific function we need so the call site is the same shape.
+
 const { mkdirp } = require('mkdirp');
 
 const LOG_DIR = path.join(process.cwd(), 'logs');
@@ -22,4 +21,10 @@ async function read(jobId) {
   return fs.promises.readFile(file, 'utf8');
 }
 
-module.exports = { append, read, pathFor };
+async function remove(jobId) {
+  const file = pathFor(jobId);
+  try { await fs.promises.unlink(file); }
+  catch (err) { if (err.code !== 'ENOENT') throw err; }
+}
+
+module.exports = { append, read, remove, pathFor };

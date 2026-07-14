@@ -4,7 +4,7 @@
 
 const express = require('express');
 const { jobQueue, connection } = require('./queue/jobQueue');
-const { getStatus, cancelJob } = require('./services/jobStore');
+const { getStatus, cancelJob, listJobs, deleteJob, deleteJobs } = require('./services/jobStore');
 const logStore = require('./services/logStore');
 const requireApiKey = require('./middleware/auth');
 const csp = require('./middleware/csp');
@@ -47,6 +47,16 @@ function buildApp({ subscribers } = {}) {
   app.use('/jobs', requireApiKey);
 
   // 1) Submit a new job
+  app.get('/jobs', async (_req, res) => {
+    try {
+      const list = await listJobs({ start: 0, end: 50 });
+      res.json({ jobs: list });
+    } catch (err) {
+      log.error('list_jobs_failed', { err: err.message });
+      res.status(500).json({ error: 'list_failed' });
+    }
+  });
+
   app.post('/jobs', async (req, res) => {
     const { image, command } = req.body;
     if (!image || !command) {
@@ -73,10 +83,49 @@ function buildApp({ subscribers } = {}) {
     res.json(status);
   });
 
+  app.delete('/jobs/:id', async (req, res) => {
+    try {
+      const out = await deleteJob(req.params.id);
+      
+      if (!out.ok) {
+        log.warn('delete_job_not_ok', { jobId: req.params.id, reason: out.reason });
+        return res.status(500).json({ error: 'delete_failed', reason: out.reason });
+      }
+      if (out.reason === 'cleanup_partial') {
+        
+        log.warn('delete_job_cleanup_partial', { jobId: req.params.id, detail: out.detail });
+      }
+      await logStore.remove(req.params.id).catch(() => {});
+      res.json(out);
+    } catch (err) {
+      log.error('delete_job_failed', { err: err.message });
+      res.status(500).json({ error: 'delete_failed' });
+    }
+  });
+
+  app.post('/jobs/delete', async (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (ids.length === 0) return res.json({ deleted: 0 });
+    try {
+      const out = await deleteJobs(ids);
+      await Promise.all(ids.map((id) => logStore.remove(id).catch(() => {})));
+      res.json(out);
+    } catch (err) {
+      log.error('delete_jobs_failed', { err: err.message });
+      res.status(500).json({ error: 'delete_failed' });
+    }
+  });
+
   app.post('/jobs/:id/cancel', async (req, res) => {
-    const result = await cancelJob(req.params.id);
-    if (!result.ok) return res.status(409).json(result);
-    res.json(result);
+    try {
+      const result = await cancelJob(req.params.id);
+      
+      if (!result.ok) return res.status(409).json(result);
+      res.json(result);
+    } catch (err) {
+      log.error('cancel_job_failed', { err: err.message });
+      res.status(500).json({ error: 'cancel_failed' });
+    }
   });
 
   app.get('/jobs/:id/logs', async (req, res) => {

@@ -13,6 +13,9 @@ const pub = new IORedis(connection);
 
 const channelFor = (jobId) => `bull:container-jobs:${jobId}`;
 const cancelKey = (jobId) => `job-cancel:${jobId}`;
+const deleteKey = (jobId) => `job-delete:${jobId}`;
+
+const containerKey = (jobId) => `job-container:${jobId}`;
 
 const containersByJobId = new Map();
 
@@ -29,7 +32,14 @@ const worker = new Worker(
         .catch((err) => log.error('logstore_write_failed', { jobId, err: err.message }));
 
     if ((await pub.get(cancelKey(jobId))) === '1') {
+      await job.moveToFailed(new Error('cancelled by user'), true).catch(() => {});
       throw new Error('cancelled by user');
+    }
+    if ((await pub.get(deleteKey(jobId))) === '1') {
+      await job.remove().catch(() => {});
+      await pub.del(deleteKey(jobId)).catch(() => {});
+      await logStore.remove(jobId).catch(() => {});
+      return { statusCode: 137, deleted: true };
     }
 
     publish({ type: 'start', jobId, image, command });
@@ -54,9 +64,7 @@ const worker = new Worker(
         // Resource limits
         Memory: 256 * 1024 * 1024,  // 256 MB hard cap
         NanoCpus: 500_000_000,      // 0.5 vCPU
-        PidsLimit: 64,              // 64 processes max
-        // Network: fully isolated. Flip to 'bridge' if you need egress and
-        // understand the implications.
+        PidsLimit: 64,              // 64 
         NetworkMode: 'none',
         // Defense in depth
         ReadonlyRootfs: true,        // can't write anywhere except tmpfs mounts
@@ -64,30 +72,29 @@ const worker = new Worker(
         CapDrop: ['ALL'],            // start with zero capabilities
         SecurityOpt: ['no-new-privileges:true'],
         Tmpfs: {
-          // Two small writable tmpfs mounts for /tmp and /run; size in bytes.
-          // uid/gid default to 0 (root) so any image works; tighten if you control the image.
+
           '/tmp': 'size=64m',
           '/run': 'size=16m',
         },
-        // Optional: ulimits to cap open files / fds inside the container.
-        // 1024 is enough for busybox sh + a handful of helpers.
+
         Ulimits: [
           { Name: 'nofile', Soft: 1024, Hard: 1024 },
           { Name: 'nproc',  Soft: 64,   Hard: 64   },
         ],
       },
     };
-    // Only set User if the operator explicitly asked for one. Many minimal
-    // images (alpine, distroless, scratch) don't include a UID 1000 user, and
-    // Docker will then fail with "no such user" before the process starts.
+
     if (process.env.JOB_USER) containerSpec.User = process.env.JOB_USER;
 
     const container = await docker.createContainer(containerSpec);
     await container.start();
     containersByJobId.set(jobId, container);
 
-    // Demux stream so stdout and stderr stay separate.
-    // Buffer each stream so a chunk split mid-line still produces whole-line records.
+    pub.set(containerKey(jobId), container.id, 'EX', 3600).catch((err) =>
+      log.error('container_key_failed', { jobId, err: err.message })
+    );
+
+
     container.logs(
       { follow: true, stdout: true, stderr: true },
       (err, stream) => {
@@ -134,7 +141,7 @@ const worker = new Worker(
       }
     );
 
-    // Wait for the container to exit, with a timeout so a runaway job can't pin a worker.
+
     const timeoutMs = Number(process.env.JOB_TIMEOUT_MS) || 5 * 60 * 1000;
     let timedOut = false;
     const waitPromise = container.wait();
@@ -153,6 +160,11 @@ const worker = new Worker(
           if ((await pub.get(cancelKey(jobId))) === '1') {
             clearInterval(interval);
             resolve({ kind: 'cancel' });
+            return;
+          }
+          if ((await pub.get(deleteKey(jobId))) === '1') {
+            clearInterval(interval);
+            resolve({ kind: 'delete' });
           }
         }, 500);
       }),
@@ -160,12 +172,32 @@ const worker = new Worker(
     clearTimeout(timer);
     clearInterval(interval);
 
-    if (outcome.kind === 'cancel') {
+    const deleteRequested = (await pub.get(deleteKey(jobId))) === '1';
+    const cancelled = (
+      outcome.kind === 'cancel' ||
+      outcome.kind === 'delete' ||
+      (await pub.get(cancelKey(jobId))) === '1' ||
+      deleteRequested
+    );
+
+    if (cancelled) {
       try { await container.kill(); } catch (_) {}
       try { await container.remove({ force: true }); } catch (_) {}
       containersByJobId.delete(jobId);
       await pub.del(cancelKey(jobId));
-      throw new Error('cancelled by user');
+      await pub.del(deleteKey(jobId));
+      if (deleteRequested) {
+        await job.remove().catch(() => {});
+        await logStore.remove(jobId).catch(() => {});
+        publish({ type: 'log', stream: 'system', data: '[deleted by user]\n' });
+        logLine({ type: 'log', stream: 'system', data: '[deleted by user]\n' });
+        return { statusCode: 137, deleted: true };
+      }
+      const message = 'cancelled by user';
+      publish({ type: 'log', stream: 'system', data: `[${message}]\n` });
+      logLine({ type: 'log', stream: 'system', data: `[${message}]\n` });
+      await job.moveToFailed(new Error(message), true).catch(() => {});
+      throw new Error(message);
     }
 
     const result = outcome.result;
@@ -175,7 +207,7 @@ const worker = new Worker(
     await pub.del(cancelKey(jobId));
 
     if (timedOut) {
-      // Throw so BullMQ triggers retry with backoff; if all attempts fail, the job is marked failed.
+      
       throw new Error(`job_timed_out_after_${timeoutMs}ms`);
     }
 
@@ -199,26 +231,25 @@ worker.on('failed', async (job, err) => {
     try { await container.remove({ force: true }); } catch (_) { }
     containersByJobId.delete(jobId);
   }
+  pub.del(containerKey(jobId)).catch(() => {});
 });
 
 worker.on('completed', (job, ret) => {
   log.info('job_completed', { jobId: job.data.jobId, returnvalue: ret });
+
+  pub.del(containerKey(job.data.jobId)).catch(() => {});
 });
 
 log.info('worker_started', { queue: 'container-jobs' });
 
-// Graceful shutdown: stop pulling new jobs, let the in-flight one finish,
-// kill any containers still tracked, then disconnect Redis.
 let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   log.info('worker_shutdown_started', { signal });
 
-  // worker.close() finishes the current job (or rejects after attempts) before resolving.
   try { await worker.close(); } catch (e) { log.error('worker_close_error', { err: e.message }); }
 
-  // If containers are still alive (shouldn't happen, but be defensive), kill them.
   for (const [jobId, container] of containersByJobId.entries()) {
     try { await container.kill(); } catch (_) {}
     try { await container.remove({ force: true }); } catch (_) {}
