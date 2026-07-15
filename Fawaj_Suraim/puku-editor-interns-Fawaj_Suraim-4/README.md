@@ -57,16 +57,20 @@ Built as an internship project (Puku / Poridhi). Two services, one queue:
 - **Retry with exponential backoff** (BullMQ, 3 attempts).
 - **Job timeout** (default 5 min) — kills the container and forces a retry.
 
-## Tech stack
+## 🛠️ Prerequisites
 
-| Layer        | Choice                                          |
-|--------------|-------------------------------------------------|
-| API          | Node 20, Express 5, ws                          |
-| Queue        | BullMQ on Redis 7                               |
-| Worker       | Node 20, dockerode                              |
-| Container    | Docker (mounted `/var/run/docker.sock`)         |
-| Frontend     | React 19, Vite 8, Tailwind 4                    |
-| Tests        | `node:test` (built-in, no Jest/Mocha)            |
+Before getting started, ensure you have the following tools installed on your local machine:
+
+* **Node.js** (v18.0.0 or higher recommended)
+* **Docker** 
+* **Docker Compose**
+
+```bash
+node --version
+docker --version
+docker compose version
+```
+![alt text](<Screenshot from 2026-07-15 19-55-26.png>)
 
 ## Project structure
 
@@ -171,6 +175,9 @@ checkout to pull only the directories you need:
 ```bash
 git clone --filter=blob:none --sparse https://github.com/poridhioss/minions-26
 
+# cd into the repo directory
+cd minions-26
+
 # Enable sparse checkout
 git sparse-checkout set Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-4
 
@@ -179,6 +186,8 @@ git pull origin main
 ```
 
 After this you'll have `backend/`, `frontend/`, `docker-compose.yml`, and etc.
+
+![alt text](<images/Screenshot from 2026-07-15 20-03-02.png>)
 
 ### 2. Prerequisites
 
@@ -218,6 +227,10 @@ That gives you:
 | `redis`       | (internal)  | Queue + pub/sub + cancel/delete keys     |
 | `server`      | `3000`      | Express API + static frontend + WS       |
 | `worker`      | —           | BullMQ consumer, runs containers         |
+|               |             |                                          |
+
+
+![alt text](<images/Screenshot from 2026-07-15 20-07-41.png>) ![alt text](<images/Screenshot from 2026-07-15 20-08-13.png>)
 
 Watch the worker come up:
 
@@ -226,6 +239,9 @@ docker compose logs -f worker
 ```
 
 Then open **http://localhost:3000**.
+
+You should see something like this:
+![alt text](<images/Screenshot from 2026-07-16 00-30-34.png>)
 
 ### 5. Submit your first job
 
@@ -247,6 +263,9 @@ Then poll:
 ```bash
 curl -s http://localhost:3000/jobs/<jobId> -H "x-api-key: $API_KEY" | jq .
 ```
+![alt text](<images/Screenshot from 2026-07-15 20-22-20.png>)
+
+> #### `You can see the logs on the UI also`
 
 ### 6. Tear down
 
@@ -254,6 +273,7 @@ curl -s http://localhost:3000/jobs/<jobId> -H "x-api-key: $API_KEY" | jq .
 docker compose down            # keep volumes
 docker compose down -v         # also wipe Redis data
 ```
+![alt text](<images/Screenshot from 2026-07-15 20-24-26.png>)
 
 ### 7. Scale workers
 
@@ -279,6 +299,7 @@ still need Redis and the Docker daemon on the host.
 cd backend && npm install
 cd ../frontend && npm install
 ```
+![alt text](<images/Screenshot from 2026-07-15 20-29-04.png>)
 
 ### 3. Start Redis
 
@@ -324,6 +345,8 @@ frontend calls the API directly at `http://localhost:3000` via
 `location.host`-relative URLs, so when you open the UI from Vite the
 requests go to port 5173 instead. Set `VITE_API_KEY` so the bundle ships
 with your key, or paste it into the header input on first load.
+
+![alt text](<images/Screenshot from 2026-07-16 00-37-27.png>)
 
 ### 7. Production-style frontend build
 
@@ -418,10 +441,15 @@ JOB=$(curl -s -X POST $BASE/jobs \
 echo "submitted $JOB"
 
 # 2) Poll status until terminal
-until curl -s $BASE/jobs/$JOB -H "x-api-key: $API_KEY" \
-        | jq -e '.state | IN("completed","failed","cancelled","deleted")' >/dev/null; do
+until 
+  RESPONSE=$(curl -s "$BASE/jobs/$JOB" -H "x-api-key: $API_KEY")
+  STATE=$(echo "$RESPONSE" | jq -r '.state')
+  echo "Current job state: $STATE"
+  echo "$RESPONSE" | jq -e '.state | IN("completed","failed","cancelled","deleted")' >/dev/null
+do
   sleep 1
 done
+
 
 # 3) Read full log
 curl -s $BASE/jobs/$JOB/logs -H "x-api-key: $API_KEY" | jq .
@@ -432,13 +460,16 @@ curl -s -X POST $BASE/jobs/$JOB/cancel -H "x-api-key: $API_KEY"
 # 5) Delete it (kills container, removes queue entry, deletes log)
 curl -s -X DELETE $BASE/jobs/$JOB -H "x-api-key: $API_KEY"
 ```
+Ternimal output should look like:
+
+![alt text](<images/Screenshot from 2026-07-16 00-43-50.png>) ![alt text](<images/Screenshot from 2026-07-16 00-44-15.png>) ![alt text](<images/Screenshot from 2026-07-16 00-54-58.png>)
 
 ---
 
 ## WebSocket log stream
 
 ```
-ws://<host>/?jobId=<id>&token=<API_KEY>
+wscat -c "ws://<host>/?jobId=<id>&token=<API_KEY>"
 ```
 
 The server replays the full persisted log first (so a client that
@@ -454,6 +485,8 @@ Each frame is a single JSON event. Common shapes:
 { "type": "error",   "data": "<message>" }
 { "type": "connected", "jobId": "..." }
 ```
+Terminal output should look like:
+![alt text](<images/Screenshot from 2026-07-16 01-14-46.png>)
 
 Auth checks:
 
@@ -522,6 +555,8 @@ cd backend
 npm run test:unit
 ```
 
+![alt text](<images/Screenshot from 2026-07-16 01-18-47.png>) ![alt text](<images/Screenshot from 2026-07-16 01-19-00.png>)
+
 Runs `jobStore.test.js`, `logStore.test.js`, `parseNdjson.test.js`.
 `jobStore.test.js` stubs out BullMQ and ioredis in-memory; `logStore`
 runs against a fresh tmp directory. Safe to run anywhere, anytime.
@@ -541,9 +576,11 @@ These spin up the Express app on a real HTTP server (no listen), submit
 a job, poll until completion, and assert the response shape and
 persisted logs. **Requires a running Redis and a running worker.**
 
+In your project root `~/minions-26/Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-4`
 ```bash
 # Option A: run the whole stack and the test-runner via Docker
 docker compose up -d        # bring up redis + server + worker
+cd backend
 npm run test:e2e            # spawns the ephemeral test-runner container
 
 # Option B: run the tests directly (no Docker), if Redis + a worker
@@ -557,6 +594,7 @@ WORKER_RUNNING=1 npm test
 test/api.test.js` inside an ephemeral container with `WORKER_RUNNING=1`
 and `API_KEY=test-key`. The test container shares `backend/logs` with
 the worker so it can read the worker's on-disk log files.
+![alt text](<images/Screenshot from 2026-07-16 01-23-46.png>)
 
 The suite auto-skips itself if `WORKER_RUNNING` isn't set, so plain
 `npm test` stays green in CI without Docker.
@@ -576,27 +614,6 @@ Covers (against a real worker pulling `alpine`):
 - `GET /jobs/:id/logs` and `DELETE /jobs/:id` reject path-traversal ids
   with `400 invalid_id`.
 - `GET /jobs` returns the submitted job in its list.
-
-### Layer 3 — Linting the frontend
-
-```bash
-cd frontend
-npm run lint
-```
-
-### Running *everything*
-
-```bash
-# Backend unit
-cd backend && npm run test:unit
-
-# End-to-end (requires the Docker stack)
-docker compose up -d
-cd backend && npm run test:e2e
-
-# Frontend
-cd ../frontend && npm run lint
-```
 
 ---
 
