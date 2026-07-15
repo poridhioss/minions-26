@@ -234,6 +234,7 @@ From the UI: keep the `alpine` preset and click **Run Job**.
 From the CLI:
 
 ```bash
+API_KEY=<your-api-key-same-as-env-file>
 curl -X POST http://localhost:3000/jobs \
   -H "Content-Type: application/json" \
   -H "x-api-key: $API_KEY" \
