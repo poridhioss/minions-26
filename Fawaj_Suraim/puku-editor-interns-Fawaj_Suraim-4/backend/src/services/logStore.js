@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { mkdirp } = require('mkdirp');
+const log = require('../lib/logger');
 
 const LOG_DIR = path.join(process.cwd(), 'logs');
 
@@ -23,8 +23,30 @@ function pathFor(jobId) {
   return path.join(LOG_DIR, `${jobId}.log`);
 }
 
+// Memoise the directory bootstrap. Concurrent append() callers (worker
+// concurrency=2) all await the same promise; subsequent appends skip the
+// syscalls entirely. A failed bootstrap stays failed for the lifetime of
+// the process — operators see the error in logs and restart the worker
+// after fixing permissions, rather than silent data loss from a runtime
+// rm -rf.
+let readyPromise;
+function ensureWritable() {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await fs.promises.mkdir(LOG_DIR, { recursive: true });
+      await fs.promises.access(LOG_DIR, fs.constants.W_OK);
+    })();
+  }
+  return readyPromise;
+}
+
 async function append(jobId, line) {
-  await fs.promises.mkdir(LOG_DIR, { recursive: true });
+  try {
+    await ensureWritable();
+  } catch (err) {
+    log.error('log_dir_unwritable', { dir: LOG_DIR, err: err.message });
+    throw err;
+  }
   await fs.promises.appendFile(pathFor(jobId), line, 'utf8');
 }
 

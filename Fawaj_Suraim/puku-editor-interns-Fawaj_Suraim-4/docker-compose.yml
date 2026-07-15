@@ -44,8 +44,13 @@ services:
       ALLOWED_WS_ORIGINS: ${ALLOWED_WS_ORIGINS:-}
     ports:
       - "3000:3000"
+    # Use a named volume so log storage is owned and initialized by Docker
+    # itself, independent of how `git clone` set the host working tree.
+    # Sharing this single volume with `worker` and `test-runner` keeps the
+    # cross-service contract that the test suite relies on
+    # (worker writes → server reads → test-runner asserts).
     volumes:
-      - ./backend/logs:/app/logs
+      - job-logs:/app/logs
     # Hardened: read-only rootfs + no-new-privileges. The server doesn't
     # need the Docker socket (only the worker does).
     read_only: true
@@ -80,7 +85,7 @@ services:
       # Mount the host Docker socket so the worker can create containers.
       # For real production, replace with a Docker socket proxy (tecnativa/docker-socket-proxy).
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend/logs:/app/logs
+      - job-logs:/app/logs
     # Run as UID 1000 so the worker creates new log files with the same
     # ownership the server (also user: 1000:1000) and any local-dev runs
     # expect. Without this, files the worker writes end up root:root and
@@ -122,11 +127,12 @@ services:
       API_KEY: test-key
       WORKER_RUNNING: "1"
     volumes:
-      # Share the host's logs dir so the test runner can read what the
-      # worker wrote (the worker writes into its own /app/logs mount).
-      - ./backend/logs:/app/logs
+      # Share the job-logs volume with the worker so the test runner can
+      # read what the worker wrote.
+      - job-logs:/app/logs
     command: ["node", "--test", "--test-timeout=120000", "--test-concurrency=1", "test/api.test.js"]
 
 
 volumes:
   redis-data:
+  job-logs:
