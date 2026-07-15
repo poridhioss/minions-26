@@ -70,7 +70,7 @@ node --version
 docker --version
 docker compose version
 ```
-![alt text](<Screenshot from 2026-07-15 19-55-26.png>)
+![images/Screenshot from 2026-07-15 19-55-26.png](<images/Screenshot from 2026-07-15 19-55-26.png>)
 
 ## Project structure
 
