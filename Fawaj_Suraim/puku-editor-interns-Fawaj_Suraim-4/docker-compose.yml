@@ -15,6 +15,17 @@ services:
     volumes:
       - redis-data:/data
 
+  logs-init:
+    # Named volumes are created as root:root. Initialize ownership before any
+    # non-root service mounts /app/logs so workers can persist job output and
+    # the server/test-runner can read it. This also repairs existing volumes.
+    image: alpine:3.21
+    user: "0:0"
+    volumes:
+      - job-logs:/app/logs
+    command: ["sh", "-c", "chown -R 1000:1000 /app/logs && chmod 0770 /app/logs"]
+    restart: "no"
+
   server:
     # Build context is the REPO ROOT (so ../frontend is reachable).
     # Dockerfile lives at backend/Dockerfile.
@@ -32,6 +43,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      logs-init:
+        condition: service_completed_successfully
     environment:
       PORT: 3000
       REDIS_URL: redis://redis:6379
@@ -76,6 +89,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      logs-init:
+        condition: service_completed_successfully
     environment:
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: info
