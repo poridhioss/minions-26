@@ -56,6 +56,7 @@ function buildApp({ subscribers } = {}) {
   //   4. <WORKDIR>/public          (Docker: WORKDIR=/app, src/app.js -> ../public)
   const candidates = [
     process.env.STATIC_DIR,
+    path.join(__dirname, '..', '..', 'frontend', 'dist'),
     path.join(__dirname, '..', '..', 'frontend'),
     path.join(__dirname, '..', '..', 'public'),
     path.join(__dirname, '..', 'public'),
