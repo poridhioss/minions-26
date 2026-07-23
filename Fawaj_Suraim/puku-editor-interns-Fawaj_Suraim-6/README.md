@@ -9,7 +9,7 @@ Objectives:
 - isolated code execution in sandbox containers
 - how a browser-based IDE can be built from scratch
 
-![image](<../images/Untitled Diagram.drawio.png>)
+![alt](<images/Untitled Diagram.drawio.png>)
 
 ---
 
@@ -74,7 +74,7 @@ git --version
 ```
 
 If you see version numbers, your environment is ready.
-<img width="1366" height="225" alt="Screenshot from 2026-07-08 11-16-19" src="https://github.com/user-attachments/assets/94c65e65-0735-4d0b-add7-df82db62fbf9" />
+![alt](<images/Screenshot From 2026-07-24 02-43-58.png>)
 
 ### Linux-specific Docker setup
 If Docker requires sudo on your machine, add your user to the Docker group:
@@ -111,7 +111,7 @@ git checkout
 # 5. Nevigate to the project directory
 cd Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim-6/
 ```
-<img width="1354" height="523" alt="Screenshot from 2026-07-08 13-27-38" src="https://github.com/user-attachments/assets/bba5e96d-5853-49de-bcd5-feda952da079" />
+![alt](<images/Screenshot From 2026-07-24 02-46-11.png>)
 
 ---
 
@@ -131,7 +131,7 @@ Navigate to the project directory `Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim
 cd backend
 npm install
 ```
-<img width="1362" height="201" alt="Screenshot from 2026-07-08 15-47-15" src="https://github.com/user-attachments/assets/0c6338df-f558-460d-8e68-e4d322dc747f" />
+![alt](<images/Screenshot From 2026-07-24 02-55-54.png>)
 
 ### Required Frontend dependencies
 The frontend uses the following packages:
@@ -151,7 +151,7 @@ Install them with:
 cd frontend
 npm install
 ```
-<img width="1362" height="201" alt="Screenshot from 2026-07-08 15-47-07" src="https://github.com/user-attachments/assets/9e353928-f38b-4351-9391-6824e65e4b67" />
+![alt](<images/Screenshot From 2026-07-24 02-59-35.png>)
 
 ---
 
@@ -163,20 +163,20 @@ Navigate to the project directory `Fawaj_Suraim/puku-editor-interns-Fawaj_Suraim
 ```bash
 make up
 ```
-<img width="1355" height="689" alt="Screenshot from 2026-07-08 16-05-28" src="https://github.com/user-attachments/assets/a7ae180c-cab0-4327-8b40-b921d24e31fa" />
+![alt](<images/Screenshot From 2026-07-24 03-03-03.png>)
 
 Then open the application in your browser:
 
 - http://localhost:8080
 
-<img width="1362" height="700" alt="Screenshot from 2026-07-08 16-14-10" src="https://github.com/user-attachments/assets/b61a7533-d824-46ac-8f5f-079734b312e2" />
+![alt](images/618739811-b61a7533-d824-46ac-8f5f-079734b312e2.png)
 
 To stop the stack later:
 
 ```bash
 make down
 ```
-<img width="1356" height="160" alt="Screenshot from 2026-07-08 16-08-55" src="https://github.com/user-attachments/assets/77cedf3e-43ba-4b74-86e0-33a187996da7" />
+![alt](<images/Screenshot From 2026-07-24 03-05-25.png>)
 
 
 ### Step 4: Understand the project structure
@@ -201,7 +201,7 @@ cd backend
 npm install
 npm run dev
 ```
-<img width="1362" height="507" alt="Screenshot from 2026-07-08 16-17-03" src="https://github.com/user-attachments/assets/35d923bf-2a6d-487a-807b-eb0b1fee5bc2" />
+![alt](<images/Screenshot From 2026-07-24 03-41-02.png>)
 
 
 Terminal 2 — frontend:
@@ -211,7 +211,7 @@ cd frontend
 npm install
 npm run dev
 ```
-<img width="1355" height="514" alt="Screenshot from 2026-07-08 16-18-37" src="https://github.com/user-attachments/assets/18a8b13a-77df-429d-9544-abfcfb7150af" />
+![alt](<images/Screenshot From 2026-07-24 03-43-06.png>)
 
 
 Then open:
@@ -220,7 +220,7 @@ Then open:
 
 The frontend will connect to the backend on port 3001.
 
-<img width="1366" height="697" alt="Screenshot from 2026-07-08 16-21-29" src="https://github.com/user-attachments/assets/02dcaa56-a09d-49cc-81e7-7e4d332e14dc" />
+![alt](images/618744950-02dcaa56-a09d-49cc-81e7-7e4d332e14dc.png)
 
 
 ---
