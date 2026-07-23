@@ -9,7 +9,7 @@ Objectives:
 - isolated code execution in sandbox containers
 - how a browser-based IDE can be built from scratch
 
-![alt text](<Untitled Diagram.png>)
+![image](<../images/Untitled Diagram.drawio.png>)
 
 ---
 
