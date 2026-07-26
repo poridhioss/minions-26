@@ -11,7 +11,7 @@ Built as an internship project (Puku / Poridhi). Two services, one queue:
 - **Worker** — BullMQ consumer, talks to the Docker daemon via `/var/run/docker.sock`.
 - **Redis** — BullMQ queue, pub/sub log channel, cancel/delete intent keys.
 
-![alt text](<images/Untitled Diagram.drawio (1).png>)
+![alt](<images/Untitled Diagram.drawio (1).png>)
 
 ---
 
@@ -70,7 +70,7 @@ node --version
 docker --version
 docker compose version
 ```
-![images/Screenshot from 2026-07-15 19-55-26.png](<images/Screenshot from 2026-07-15 19-55-26.png>)
+![alt](<images/Screenshot From 2026-07-24 05-02-28.png>)
 
 ## Project structure
 
@@ -187,7 +187,7 @@ git pull origin main
 
 After this you'll have `backend/`, `frontend/`, `docker-compose.yml`, and etc.
 
-![alt text](<images/Screenshot from 2026-07-15 20-03-02.png>)
+![alt](<images/Screenshot From 2026-07-24 05-04-34.png>)
 
 ### 2. Prerequisites
 
@@ -230,7 +230,7 @@ That gives you:
 |               |             |                                          |
 
 
-![alt text](<images/Screenshot from 2026-07-15 20-07-41.png>) ![alt text](<images/Screenshot from 2026-07-15 20-08-13.png>)
+![alt text](<images/Screenshot From 2026-07-24 06-05-40.png>) ![alt text](<images/Screenshot From 2026-07-24 06-06-05.png>)
 
 Watch the worker come up:
 
@@ -263,7 +263,7 @@ Then poll:
 ```bash
 curl -s http://localhost:3000/jobs/<jobId> -H "x-api-key: $API_KEY" | jq .
 ```
-![alt text](<images/Screenshot from 2026-07-15 20-22-20.png>)
+![alt text](<images/Screenshot From 2026-07-24 07-01-57.png>)
 
 > #### `You can see the logs on the UI also`
 
@@ -273,7 +273,7 @@ curl -s http://localhost:3000/jobs/<jobId> -H "x-api-key: $API_KEY" | jq .
 docker compose down            # keep volumes
 docker compose down -v         # also wipe Redis data
 ```
-![alt text](<images/Screenshot from 2026-07-15 20-24-26.png>)
+![alt text](<images/Screenshot From 2026-07-24 06-16-10.png>)
 
 ### 7. Scale workers
 
@@ -299,7 +299,7 @@ still need Redis and the Docker daemon on the host.
 cd backend && npm install
 cd ../frontend && npm install
 ```
-![alt text](<images/Screenshot from 2026-07-15 20-29-04.png>)
+![alt text](<images/Screenshot From 2026-07-24 06-20-23.png>)
 
 ### 3. Start Redis
 
@@ -462,14 +462,14 @@ curl -s -X DELETE $BASE/jobs/$JOB -H "x-api-key: $API_KEY"
 ```
 Ternimal output should look like:
 
-![alt text](<images/Screenshot from 2026-07-16 00-43-50.png>) ![alt text](<images/Screenshot from 2026-07-16 00-44-15.png>) ![alt text](<images/Screenshot from 2026-07-16 00-54-58.png>)
+![alt](<images/Screenshot From 2026-07-24 07-16-34.png>) ![alt](<images/Screenshot From 2026-07-24 07-16-55.png>) ![alt](<images/Screenshot From 2026-07-24 07-17-52.png>)
 
 ---
 
 ## WebSocket log stream
 
 ```
-wscat -c "ws://<host>/?jobId=<id>&token=<API_KEY>"
+npx wscat -c "ws://<host>/?jobId=<id>&token=<API_KEY>"
 ```
 
 The server replays the full persisted log first (so a client that
@@ -486,7 +486,7 @@ Each frame is a single JSON event. Common shapes:
 { "type": "connected", "jobId": "..." }
 ```
 Terminal output should look like:
-![alt text](<images/Screenshot from 2026-07-16 01-14-46.png>)
+![alt text](<images/Screenshot From 2026-07-24 07-28-28.png>)
 
 Auth checks:
 
@@ -555,7 +555,7 @@ cd backend
 npm run test:unit
 ```
 
-![alt text](<images/Screenshot from 2026-07-16 01-18-47.png>) ![alt text](<images/Screenshot from 2026-07-16 01-19-00.png>)
+![alt text](<images/Screenshot From 2026-07-24 07-29-55.png>) ![alt text](<images/Screenshot From 2026-07-24 07-30-21.png>)
 
 Runs `jobStore.test.js`, `logStore.test.js`, `parseNdjson.test.js`.
 `jobStore.test.js` stubs out BullMQ and ioredis in-memory; `logStore`
@@ -594,7 +594,7 @@ WORKER_RUNNING=1 npm test
 test/api.test.js` inside an ephemeral container with `WORKER_RUNNING=1`
 and `API_KEY=test-key`. The test container shares `backend/logs` with
 the worker so it can read the worker's on-disk log files.
-![alt text](<images/Screenshot from 2026-07-16 01-23-46.png>)
+![alt text](<images/Screenshot From 2026-07-24 07-36-12.png>)
 
 The suite auto-skips itself if `WORKER_RUNNING` isn't set, so plain
 `npm test` stays green in CI without Docker.
