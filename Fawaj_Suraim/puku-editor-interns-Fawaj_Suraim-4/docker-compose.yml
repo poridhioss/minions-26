@@ -46,7 +46,7 @@ services:
       logs-init:
         condition: service_completed_successfully
     environment:
-      PORT: 3000
+      PORT: ${PORT:-3000}
       REDIS_URL: redis://redis:6379
       # :?  → fail-fast if API_KEY is unset, instead of silently using "changeme".
       API_KEY: ${API_KEY:?API_KEY must be set in shell or ./.env}
@@ -56,7 +56,7 @@ services:
       # Omit to allow any origin (dev-only).
       ALLOWED_WS_ORIGINS: ${ALLOWED_WS_ORIGINS:-}
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     # Use a named volume so log storage is owned and initialized by Docker
     # itself, independent of how `git clone` set the host working tree.
     # Sharing this single volume with `worker` and `test-runner` keeps the
